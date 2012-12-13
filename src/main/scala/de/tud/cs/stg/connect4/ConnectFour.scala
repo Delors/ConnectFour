@@ -32,7 +32,8 @@
  */
 package de.tud.cs.stg.connect4
 
-import scala.collection.mutable.SynchronizedMap
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.Buffer
 
 /**
   * An implementation of the game "Connect Four" that uses the minimax algorithm to implement the AI.
@@ -74,7 +75,7 @@ import scala.collection.mutable.SynchronizedMap
   * To update the game state you either call:
   * {{{
   * game = game.makeMove(<COLUMN_ID>).
-  * }}} 
+  * }}}
   * after the user has chosen the column, or if it is the ai's turn:
   * {{{
   * game = game.makeMove(game.bestMove(aiStrength))
@@ -83,7 +84,7 @@ import scala.collection.mutable.SynchronizedMap
   * {{{
   * game.state()
   * }}}
-  * 
+  *
   * ==Implementation Details==
   * Internally, two long values are use to encode the game state. The game state encompasses the information
   * which squares are occupied (encoded using the first (ROWS x COLUMNS) bits of the first long value) and
@@ -146,11 +147,11 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         /**
           * Returns the list of square ids where the next man can be placed.
           */
-        def legalMoves: List[Int] = {
+        def legalMoves: Buffer[Int] = {
             // In the following a while loop is used to improve the performance. 
             // Scala's for-loops (2.9.x) are (still) slow(er) and this is one of 
             // the core methods used by the minimax algorithm.
-            var squares: List[Int] = List()
+            var squares = new ArrayBuffer[Int](COLS)
             var col = 0
             // in each column find the lowest square that is empty
             do {
@@ -159,7 +160,7 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
                 do {
                     val square: Int = squareId(row, col)
                     if (!isOccupied(square)) {
-                        squares = square :: squares
+                        squares.+=(square)
                         continue = false
                     }
                     else {
@@ -372,7 +373,11 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         private def minimax(depth: Int, maxDepth: Int, cache: ConcurrentHashMap[Game, Int]): Int = {
             // The following implementation is basically the negamax variant of the minimax algorithm. 
             // I.e., we have a single minimax method and no two separate `minValue` and `maxValue` methods.
-            // max(a,b) = -min(-a,-b)
+            // The negamax algorithm builds upon the fact that max(a,b) = -min(-a,-b).
+
+            // THE FOLLOWING CODE IS DEVELOPED WITH EFFICIENCY IN MIND!
+            // That is, iterator objects and the like are not used for performance reasons. All these design
+            // decisions were tested to have a significant (>>10%) overall performance impact.
 
             // 1. check if the game is finished
             val result = state()
@@ -395,7 +400,12 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
             // 3. recursively call the minimax method to continue exploring the search tree
             val factor = if (turnOfPlayer == 1 /*Black*/ ) -1 else 1
             var valueOfBestMove = Int.MinValue
-            for (legalMove ← legalMoves) {
+            // [ "HIGHLY INEFFICIENT": for (legalMove ← legalMoves) {...} ]
+            val legalMoves = this.legalMoves
+            val legalMovesSize = legalMoves.size
+            var lm = 0
+            do {
+                val legalMove = legalMoves(lm)
                 val newGameState: Game = makeMove(legalMove)
                 var value: Int = {
                     val exploredDepth = maxDepth - depth
@@ -424,7 +434,8 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
                 if (value >= valueOfBestMove) {
                     valueOfBestMove = value
                 }
-            }
+                lm += 1
+            } while (lm < legalMovesSize)
             valueOfBestMove * factor
         }
 
