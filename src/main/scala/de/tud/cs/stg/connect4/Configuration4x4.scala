@@ -48,7 +48,7 @@ object Configuration4x4 extends Configuration {
 
     final val COLS = 4
 
-    final val HIGHEST_ROW_BOARD_MASK: Mask =
+    final val TOP_ROW_BOARD_MASK: Mask =
         (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
 
     final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Long] =

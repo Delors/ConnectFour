@@ -148,7 +148,7 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
           * Returns the list of square ids where the next man can be placed.
           */
         def legalMoves: Buffer[Int] = {
-            // In the following a while loop is used to improve the performance. 
+            // In the following, a do-while loop is used to improve the performance. 
             // Scala's for-loops (2.9.x) are (still) slow(er) and this is one of 
             // the core methods used by the minimax algorithm.
             var squares = new ArrayBuffer[Int](COLS)
@@ -169,8 +169,12 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
                 } while (continue && row <= MAX_ROW_INDEX)
                 col += 1
             } while (col <= MAX_COL_INDEX)
-            // using square weights to sort the list of legal moves does not (yet) pay off: squares.sortWith((s1, s2) ⇒ SQUARE_WEIGHTS(s1) < SQUARE_WEIGHTS(s2))
-            // sorting by first considering the columns in the middle does not (yet) pay off: squares.sortWith((s1,s2) => java.lang.Math.abs(column(s1)-3) <= java.lang.Math.abs(column(s2)-3))
+
+            // using square weights to sort the list of legal moves does not (yet) pay off: 
+            // squares.sortWith((s1, s2) ⇒ SQUARE_WEIGHTS(s1) < SQUARE_WEIGHTS(s2))
+
+            // sorting by first considering the columns in the middle does not (yet) pay off: 
+            //squares.sortWith((s1,s2) => java.lang.Math.abs(column(s1)-3) <= java.lang.Math.abs(column(s2)-3))
             squares
         }
 
@@ -194,28 +198,19 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         /**
           * Tests if the square with the given id is occupied.
           */
-        def isOccupied(squareId: Int): Boolean = {
-            (occupiedBitField & (1l << squareId)) != 0l
-        }
+        def isOccupied(squareId: Int): Boolean = (occupiedBitField & (1l << squareId)) != 0l
 
         /**
           * Evaluates if all squares are occupied.
           */
-        def allSquaresOccupied: Boolean = {
-            (occupiedBitField & HIGHEST_ROW_BOARD_MASK) == HIGHEST_ROW_BOARD_MASK
-        }
+        def allSquaresOccupied: Boolean = (occupiedBitField & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK
 
         /**
           * Returns the id of the player that occupies the given square.
           *
           * The result is only defined iff the square is occupied.
           */
-        def playerId(squareId: Int): Int = {
-            if ((playerBitField & (1l << squareId)) == 0l)
-                0
-            else
-                1
-        }
+        def playerId(squareId: Int): Int = if ((playerBitField & (1l << squareId)) == 0l) 0 else 1
 
         /**
           * Returns the player that occupies the squares identified by the given mask.
@@ -236,17 +231,17 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         }
 
         /**
-          * Updates the current game state by putting a man in the given square and updating the
+          * Creating a new game state by putting a man in the given square and updating the
           * information which player has to make the next move.
           */
         def makeMove(squareId: Int): Game = {
-            val mask = 1l << squareId
+            val squareMask = 1l << squareId
             new Game(
-                occupiedBitField | mask,
+                occupiedBitField | squareMask /* put a man in the square */ ,
                 if (turnOfPlayer == 0l)
                     playerBitField | (1l << 63) /* The BLACK player (ID = 1) is next. */
                 else
-                    (playerBitField | mask) &
+                    (playerBitField | squareMask) &
                         // we have to mask the most significant bit (the 64th bit)
                         java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
             )
@@ -267,24 +262,26 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         def state(): State = {
             // 1. check if we can find a line of four connected men
             val allMasks = ALL_MASKS
+            val allQuickCheckMasks = ALL_QUICK_CHECK_MASKS
             var o = 0
             do {
-                val (quickCheckMasks, masks) = allMasks(o)
+                val quickCheckMasks = allQuickCheckMasks(o)
+                val masks = allMasks(o)
                 var x = 0
                 val xMax = masks.length
-                do {
-                    val quickCheckBoardMask = quickCheckMasks(x)
-                    if ((occupiedBitField & quickCheckBoardMask) == quickCheckBoardMask) {
-                        val perLineBoardMasks = masks(x)
+                do { // for all colums, rows, diagonals...
+                    val quickCheckMask = quickCheckMasks(x)
+                    if ((occupiedBitField & quickCheckMask) == quickCheckMask) {
+                        val perLineMasks = masks(x)
                         var y = 0
-                        val yMax = perLineBoardMasks.length
-                        do {
-                            val boardMask = perLineBoardMasks(y)
-                            if ((occupiedBitField & boardMask) == boardMask) {
-                                (playerBitField & boardMask) match {
-                                    case `boardMask` ⇒ return boardMask
-                                    case 0l          ⇒ return boardMask
-                                    case _           ⇒ /*continue*/
+                        val yMax = perLineMasks.length
+                        do { // for all potential lines of four connected men in a row, column, diagonal... 
+                            val mask = perLineMasks(y)
+                            if ((occupiedBitField & mask) == mask) {
+                                (playerBitField & mask) match {
+                                    case `mask` ⇒ return mask
+                                    case 0l     ⇒ return mask
+                                    case _      ⇒ /*continue*/
                                 }
                             }
                             y += 1
@@ -303,6 +300,10 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
             NOT_FINISHED
         }
 
+        def assess() {
+            
+        }
+        
         //        private def sumSquareWeights(playerId: Int): Int = {
         //            //SHORT, BUT INEFFICIENT: 
         //            //(0 /: ((0 until 42).filter(isOccupied(_)).filter(playerId(_) == playerID)))(_ + SQUARE_WEIGHTS(_))
@@ -355,6 +356,21 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         // Java ConcurrentHashMap as this type of hashmap is (as of Scala 2.9.1 and Java 7) the most
         // efficient data structure if we have multiple concurrent updates (as in this case!)
         import java.util.concurrent.ConcurrentHashMap
+        
+        // Thoughts on memoization of game states: 
+        // At level 3 (i.e. after three moves) we have at most COLS*COLS*COLS nodes (e.g., 7^3 = 343 nodes); 
+        // however, 147 nodes represent the same game state. E.g., the state after dropping a man in the 
+        // columns: 1(W),2(B),3(W) or 3(W),2(B),1(W) is identical and not distinguishable and the minimax 
+        // value will be the same. Hence, calculating it twice is a waste of ressources.
+        // At level 4 we have at most COLS^4 nodes => 2.401
+        // At level 5 we have at most COLS^5 nodes => 16.807
+        // At level 6 we have at most COLS^6 nodes => 117.649
+        // At level 7 we have at most COLS^7 nodes => 823.543
+        // At level 8 we have at most COLS^8 nodes => 5.764.801
+        // At level 9 we have at most COLS^9 nodes => 40.353.607
+        // At level 10 we have at most COLS^10 nodes => 282.475.249
+        // If assume that we need ~40Byte for storing one game state, we can store approximately 25.000.000
+        // game states in one gigabyte.
 
         /**
           * Assesses the current board. The value will be between -Int.MaxValue and
@@ -372,8 +388,9 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
           */
         private def minimax(depth: Int, maxDepth: Int, cache: ConcurrentHashMap[Game, Int]): Int = {
             // The following implementation is basically the negamax variant of the minimax algorithm. 
-            // I.e., we have a single minimax method and no two separate `minValue` and `maxValue` methods.
-            // The negamax algorithm builds upon the fact that max(a,b) = -min(-a,-b).
+            // I.e., we have a single minimax method instead of two separate `minValue` and `maxValue` methods.
+            // We can use the negamax algorithm because with a zero-sum two player game where we strictly 
+            // alternate between the players. (max(a,b) = -min(-a,-b)).
 
             // THE FOLLOWING CODE IS DEVELOPED WITH EFFICIENCY IN MIND!
             // That is, iterator objects and the like are not used for performance reasons. All these design
@@ -394,7 +411,7 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
 
             // 2. check if we have to abort exploring the search tree
             if (depth <= 0) {
-                return 0 // assess()
+                return 0 // TODO implement a heuristic evaluation function
             }
 
             // 3. recursively call the minimax method to continue exploring the search tree

@@ -91,21 +91,21 @@ trait Configuration {
       * @param squareId A valid square id.
       */
     final def column(squareId: Int): Int = squareId % COLS
-    
+
     /**
       * Masks the squares in the top-level row of the board.
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    val HIGHEST_ROW_BOARD_MASK: Mask
+    val TOP_ROW_BOARD_MASK: Mask
 
     /**
       * To get four men connected horizontally – on a board with 7 columns – it is strictly necessary that the
       * column exactly in the middle is occupied.
       */
-    val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Mask]
+    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Mask]
 
-    val MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Mask]]
+    def MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Mask]]
 
     /**
       * To get four men connected vertically, it is strictly necessary that – given a specific column –
@@ -113,23 +113,30 @@ trait Configuration {
       *
       * The array contains the corresponding board masks for each column.
       */
-    val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Mask]
+    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Mask]
 
-    val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Mask]]
+    def MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Mask]]
 
-    val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Mask]
+    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Mask]
 
-    val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Mask]]
+    def MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Mask]]
 
-    val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Mask]
+    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Mask]
 
-    val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Mask]]
+    def MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Mask]]
 
-    final lazy val ALL_MASKS: Array[(Array[Mask], Array[Array[Mask]])] = Array(
-        (QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS, MASKS_FOR_CONNECT_4_CHECK_IN_ROWS),
-        (QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS, MASKS_FOR_CONNECT_4_CHECK_IN_COLS),
-        (QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS, MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS),
-        (QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS, MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS)
+    final lazy val ALL_QUICK_CHECK_MASKS: Array[Array[Mask]] = Array(
+        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
+        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
+        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
+        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
+    )
+
+    final lazy val ALL_MASKS: Array[Array[Array[Mask]]] = Array(
+        MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
+        MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
+        MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
+        MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
     )
 
     /**
