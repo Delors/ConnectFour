@@ -206,9 +206,8 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         def allSquaresOccupied: Boolean = (occupiedBitField & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK
 
         /**
-          * Returns the id of the player that occupies the given square.
-          *
-          * The result is only defined iff the square is occupied.
+          * Returns the id of the player that occupies the given square;
+          * the result is only defined iff the square is occupied.
           */
         def playerId(squareId: Int): Int = if ((playerBitField & (1l << squareId)) == 0l) 0 else 1
 
@@ -231,8 +230,15 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         }
 
         /**
-          * Creating a new game state by putting a man in the given square and updating the
+          * Creates a new game state by putting a man in the given square and updating the
           * information which player has to make the next move.
+          *
+          * ==Prerequisites==
+          * The squares  below the square have to be occupied and the specified square has to be empty.
+          * However, this is not checked.
+          *
+          * @param squareId The id of the square where the man is placed.
+          * @return The updated game state.
           */
         def makeMove(squareId: Int): Game = {
             val squareMask = 1l << squareId
@@ -300,10 +306,11 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
             NOT_FINISHED
         }
 
-        def assess() {
+        def assess(): Int = {
             
+            return 0;
         }
-        
+
         //        private def sumSquareWeights(playerId: Int): Int = {
         //            //SHORT, BUT INEFFICIENT: 
         //            //(0 /: ((0 until 42).filter(isOccupied(_)).filter(playerId(_) == playerID)))(_ + SQUARE_WEIGHTS(_))
@@ -356,7 +363,7 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
         // Java ConcurrentHashMap as this type of hashmap is (as of Scala 2.9.1 and Java 7) the most
         // efficient data structure if we have multiple concurrent updates (as in this case!)
         import java.util.concurrent.ConcurrentHashMap
-        
+
         // Thoughts on memoization of game states: 
         // At level 3 (i.e. after three moves) we have at most COLS*COLS*COLS nodes (e.g., 7^3 = 343 nodes); 
         // however, 147 nodes represent the same game state. E.g., the state after dropping a man in the 
@@ -411,7 +418,7 @@ class ConnectFour( final val configuration: Configuration = Configuration6x7) {
 
             // 2. check if we have to abort exploring the search tree
             if (depth <= 0) {
-                return 0 // TODO implement a heuristic evaluation function
+                return assess() // TODO implement a heuristic evaluation function
             }
 
             // 3. recursively call the minimax method to continue exploring the search tree
