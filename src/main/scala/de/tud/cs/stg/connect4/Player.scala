@@ -40,12 +40,12 @@ package de.tud.cs.stg.connect4
 object Player extends Enumeration {
 
     /**
-      * The player that always makes the first move. The id of the white player is zero ("0").
+      * The player that always makes the first move. The id of the white player is/has to be zero ("0").
       */
     final val WHITE = Value(0)
 
     /**
-      * The player that makes the second move. The id of the black player is one ("1").
+      * The player that makes the second move. The id of the black player is/has to be one ("1").
       */
     final val BLACK = Value(1)
 }

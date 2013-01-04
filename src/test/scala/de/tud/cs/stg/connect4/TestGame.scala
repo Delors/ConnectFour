@@ -38,7 +38,7 @@ import org.scalatest._
 import org.scalatest.matchers._
 
 /**
-  * Basic tests of the game board.
+  * Basic tests of the game logic and the ai.
   *
   * @author Michael Eichberg
   */
@@ -71,6 +71,30 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     val b15 = b14.makeMove(6) // White
     val bBLACKWins = b15.makeMove(8) // Black
 
+    //Next Player: WHITE
+    //Board:
+    //5                
+    //4                
+    //3                
+    //2        ◼       
+    //1        ◼       
+    //0        ◼ ○ ○ ○ 
+    //
+    //   0 1 2 3 4 5 6 
+    val bBlackCanWin = b0.makeMove(4).makeMove(3).makeMove(5).makeMove(10).makeMove(6).makeMove(17)
+
+    //Next Player: BLACK
+    //Board:
+    //5                
+    //4                
+    //3                
+    //2                
+    //1                
+    //0    ◼ ◼ ○ ○ ○   
+    //
+    //   0 1 2 3 4 5 6     
+    val bWhiteCanWin = b0.makeMove(3).makeMove(1).makeMove(4).makeMove(2).makeMove(5)
+
     //
     // Test
     //
@@ -87,7 +111,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
             b0.turnOfPlayer should be(Player.WHITE.id)
         }
 
-        it("when a player drops a men in a specific column it is placed in the lowest free square in the column then belongs to the player ") {
+        it("when a player drops a men in a specific column it is placed in the lowest free square in the column which then should belong to the player ") {
             b1.playerId(4) should be(Player.WHITE.id)
             b2.playerId(3) should be(Player.BLACK.id)
             b3.playerId(2) should be(Player.WHITE.id)
@@ -101,35 +125,60 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
             b9.legalMoves.toSet should be(Set(7 /*col 1*/ , 1 /*col 2*/ , 10 /*col 4*/ , 11 /*col 5*/ , 5 /*col 6*/ , 6 /*col 7*/ ))
         }
 
-        it("should not be completely occupied if at least one square is empty") {
+        it("the board is not completely occupied if at least one square is empty") {
             b0.allSquaresOccupied should be(false)
             b9.allSquaresOccupied should be(false)
         }
 
         it("the game is not finished as long as no player has four connected men and some squares are still empty") {
-            b1.state should be(NOT_FINISHED)
-            b2.state should be(NOT_FINISHED)
-            b3.state should be(NOT_FINISHED)
-            b4.state should be(NOT_FINISHED)
-            b5.state should be(NOT_FINISHED)
-            b6.state should be(NOT_FINISHED)
-            b7.state should be(NOT_FINISHED)
-            b8.state should be(NOT_FINISHED)
-            b9.state should be(NOT_FINISHED)
-            b10.state should be(NOT_FINISHED)
+            b1.determineState should be(NOT_FINISHED)
+            b2.determineState should be(NOT_FINISHED)
+            b3.determineState should be(NOT_FINISHED)
+            b4.determineState should be(NOT_FINISHED)
+            b5.determineState should be(NOT_FINISHED)
+            b6.determineState should be(NOT_FINISHED)
+            b7.determineState should be(NOT_FINISHED)
+            b8.determineState should be(NOT_FINISHED)
+            b9.determineState should be(NOT_FINISHED)
+            b10.determineState should be(NOT_FINISHED)
         }
 
         it("a player wins the game if the player has four connected men in a column") {
-            val result = bWHITEWins.state
+            val result = bWHITEWins.determineState
             result should be((1l << 4 | 1l << 11 | 1l << 18 | 1l << 25))
             bWHITEWins.player(result) should be(Some(Player.WHITE))
         }
 
         it("a player wins the game if the player has four connected men in a row") {
-            val result = bBLACKWins.state
+            val result = bBLACKWins.determineState
             result should be((1l << 7 | 1l << 8 | 1l << 9 | 1l << 10))
             bBLACKWins.player(result) should be(Some(Player.BLACK))
         }
 
+        it("if the black player has three men in a line which can be completed to a line of four connected men the AI should make the move that prevents the black player from (immediately) winning") {
+            -bBlackCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(13).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+
+            -bBlackCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
+            -bBlackCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
+            -bBlackCanWin.makeMove(13).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
+
+            bBlackCanWin.proposeMove(2) should be(24)
+        }
+
+        it("if the white player has three men in a line which can be completed to a line of four connected men the AI should make the move that prevents the white player from (immediately) winning") {
+            -bWhiteCanWin.makeMove(0).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(8).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(9).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(10).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(6).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be > -2147483647
+
+            bWhiteCanWin.proposeMove(3) should be(6)
+            bWhiteCanWin.proposeMove(2) should be(6)
+            bWhiteCanWin.proposeMove(1) should be(6)
+        }
     }
 }

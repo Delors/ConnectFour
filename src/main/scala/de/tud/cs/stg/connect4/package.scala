@@ -48,8 +48,8 @@ package de.tud.cs.stg
   * using two long values. The encoding was done such that is efficient to check for lines of four connected
   * men as well as to update the game state.
   *
-  * To make the code more comprehensible two aliases (State and Mask) for the primitive type long are defined to 
-  * indicate in which way a particular long value is expected to be used.
+  * To make the code more comprehensible two aliases (State and Mask) for the primitive type long are defined
+  * to indicate in which way a particular long value is expected to be used.
   *
   * ==License==
   * BSD Style License
@@ -96,7 +96,7 @@ package object connect4 {
       *  1. The game is not finished ([[de.tud.cs.stg.connect4.NOT_FINISHED]]).
       *  1. The game is drawn ([[de.tud.cs.stg.connect4.DRAWN]]).
       *  1. Some player has won the game.
-      * The value associated with the first state is the long value -1; the long value associated with the
+      * The value associated with the first state is the long value -1l; the long value associated with the
       * second state (DRAWN) is 0l. The third case uses values in the range: [15...2^(7x7)] to (a) identify
       * that some player has won and (b) to simultaneously specify the mask that can be used to identify the
       * line of four connect men on the board.

@@ -39,7 +39,7 @@ package de.tud.cs.stg.connect4
   */
 object Configuration6x7 extends Configuration {
 
-    final val RECOMMENDED_AI_STRENGTH = 6
+    final val RECOMMENDED_AI_STRENGTH = 5
 
     final val ROWS = 6
 

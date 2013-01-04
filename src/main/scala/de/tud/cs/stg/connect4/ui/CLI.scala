@@ -54,17 +54,17 @@ object CLI extends scala.App {
     private val din = new java.io.DataInputStream(java.lang.System.in)
 
     private def playerMove(game: Game, aiStrength: Int): (Game, State) = {
-        val state = game.state
+        val state = game.determineState
         if (state == NOT_FINISHED) {
             println(game);
             { print("Choose column: "); val b = din.readByte(); println; b } match {
                 case 'p' ⇒ { // let the ai make a proposal
-                    val proposal = connectFour.column(game.bestMove(aiStrength))
+                    val proposal = connectFour.column(game.proposeMove(aiStrength))
                     println("\nProposal: "+proposal)
                     return playerMove(game, aiStrength)
                 }
                 case 'm' ⇒ { // let the ai make the move
-                    return aiMove(game.makeMove(game.bestMove(aiStrength)), aiStrength)
+                    return aiMove(game.makeMove(game.proposeMove(aiStrength)), aiStrength)
                 }
                 case c if c >= '0' && c < ('0' + connectFour.COLS) ⇒ {
                     game.lowestFreeSquareInColumn(c - '0') match {
@@ -87,9 +87,13 @@ object CLI extends scala.App {
     }
 
     private def aiMove(game: Game, aiStrength: Int): (Game, State) = {
-        val state = game.state
-        if (state == NOT_FINISHED)
-            playerMove(game.makeMove(game.bestMove(aiStrength)), aiStrength)
+        val state = game.determineState
+        if (state == NOT_FINISHED) {
+            val startTime = System.currentTimeMillis()
+            val theMove = game.proposeMove(aiStrength)
+            println("Found the move ("+configuration.column(theMove)+") in: "+(System.currentTimeMillis() - startTime) / 1000.0d)
+            playerMove(game.makeMove(theMove), aiStrength)
+        }
         else
             (game, state)
     }

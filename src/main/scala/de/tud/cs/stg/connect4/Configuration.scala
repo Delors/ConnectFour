@@ -32,6 +32,8 @@
  */
 package de.tud.cs.stg.connect4
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * Configuration of a specific board. The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 7 rows and 7 columns.
@@ -66,7 +68,7 @@ trait Configuration {
     protected[connect4] final val MAX_SQUARE_INDEX = SQUARES - 1
 
     /**
-      * The id of the square in the upper right-hand corner.
+      * The id of the square in the upper left-hand corner.
       */
     protected[connect4] final val UPPER_LEFT_SQUARE_INDEX = (ROWS - 1) * COLS
 
@@ -132,12 +134,26 @@ trait Configuration {
         QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
     )
 
-    final lazy val ALL_MASKS: Array[Array[Array[Mask]]] = Array(
+    final lazy val ALL_MASKS_FOR_CONNECT4_CHECK: Array[Array[Array[Mask]]] = Array(
         MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
         MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
         MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
         MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
     )
+
+    final lazy val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = {
+        val arrayBuffer = new ArrayBuffer[Long]()
+        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_ROWS.flatten)
+        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_COLS.flatten)
+        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS.flatten)
+        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS.flatten)
+        arrayBuffer.toArray
+    }
+
+    final lazy val ALL_ESSENTIAL_SQUARES_MASKS: Array[Array[Mask]] =
+        ALL_MASKS_FOR_CONNECT4_CHECK.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
+            (Long.MaxValue /: perLineMasks)(_ & _)
+        )))
 
     /**
       * The weight of each square is equal to the number of times the square appears in a line of
@@ -145,8 +161,7 @@ trait Configuration {
       *
       * These weights can, e.g., be used by the ai.
       *
-      * For example, in case of a board with 6 rows and 7 columns
-      * the weights are:
+      * For example, in case of a board with 6 rows and 7 columns the weights are:
       *  3.. 4.. 5.. 7.. 5.. 4.. 3
       *  4.. 6.. 8..10.. 8.. 6.. 4
       *  5.. 8..11..13..11.. 8.. 5
