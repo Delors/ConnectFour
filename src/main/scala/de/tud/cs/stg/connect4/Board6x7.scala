@@ -33,41 +33,38 @@
 package de.tud.cs.stg.connect4
 
 /**
-  * Configuration for a board with 4 rows and 4 columns. For a board of this size, the ai can easily play
-  * perfectly. There are (upper bound) at most 4^13*3*2 leaf nodes; but only a fraction will actually be
-  * explored by the implementation.
+  * Configuration for a board with 6 rows and 7 columns (the standard board size).
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmtadt.de)
   */
-object Configuration4x4 extends Configuration {
+object Board6x7 extends Board {
 
-    // => we will construct the complete search tree; hence, we play perfectly
-    final val RECOMMENDED_AI_STRENGTH = 8
+    final val RECOMMENDED_AI_STRENGTH = 5
 
-    final val ROWS = 4
+    final val ROWS = 6
 
-    final val COLS = 4
+    final val COLS = 7
 
-    final val TOP_ROW_BOARD_MASK: Mask =
+    final val TOP_ROW_BOARD_MASK: Long =
         (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
 
     final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Long] =
-        ((4 to 7) map (1l << _)).toArray
+        ((21 to 27) map (1l << _)).toArray
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Long]] = {
-        val initialMask = 1l | (1l << 4) | (1l << 8) | (1l << 12)
+        val initialMask = 1l | (1l << 7) | (1l << 14) | (1l << 21)
         (for (c ← 0 to MAX_COL_INDEX) yield {
             var mask = initialMask << c
             (for (r ← 0 to MAX_ROW_INDEX - 3) yield {
                 val currentMask = mask
-                mask = mask << 4
+                mask = mask << 7
                 currentMask
             }).toArray
         }).toArray
     }
 
     final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Long] =
-        ((3 to 15 by 4) map { 1l << _ }).toArray
+        ((3 to 38 by 7) map { 1l << _ }).toArray
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Long]] = {
         var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
@@ -82,28 +79,61 @@ object Configuration4x4 extends Configuration {
         }).toArray
     }
 
-    final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS = Array(1l)
+    final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS =
+        Array(1l << 38, 1l << 31, 1l << 24, 1l << 25, 1l << 26, 1l << 27)
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Mask]] =
-        Array(Array(1l | 1l << 5 | 1l << 10 | 1l << 15))
+    private final val START_INDEXES_FOR_CONNECT_4_CHECKS_IN_LL_TO_UR_DIAGONALS = Array[Int](14, 7, 0, 1, 2, 3)
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Long]] = {
+
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * 8 }
+
+        (for (startIndex ← START_INDEXES_FOR_CONNECT_4_CHECKS_IN_LL_TO_UR_DIAGONALS) yield {
+            var bitField = (1l << startIndex | 1l << (startIndex + 8) | 1l << (startIndex + 2 * 8) | 1l << (startIndex + 3 * 8))
+            var currentIndex = startIndex
+            var bitFields = List[Long]()
+            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+                && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
+                bitFields = bitField :: bitFields
+                currentIndex += 8
+                bitField = bitField << 8
+            }
+            bitFields.reverse.toArray
+        }).toArray
+    }
 
     final val QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS =
-        Array(1l << 12)
+        Array(1l << 21, 1l << 22, 1l << 23, 1l << 24, 1l << 31, 1l << 38)
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Mask]] =
-        Array(Array(1l << 3 | 1l << 6 | 1l << 9 | 1l << 12))
+    private final val START_INDEXES_FOR_CONNECT_4_CHECKS_IN_LR_TO_UL_DIAGONALS = Array[Int](3, 4, 5, 6, 13, 20)
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Long]] = {
+
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * 6 }
+
+        (for (startIndex ← START_INDEXES_FOR_CONNECT_4_CHECKS_IN_LR_TO_UL_DIAGONALS) yield {
+            var bitField = (1l << startIndex | 1l << (startIndex + 6) | 1l << (startIndex + 2 * 6) | 1l << (startIndex + 3 * 6))
+            var currentIndex = startIndex
+            var bitFields = List[Long]()
+            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+                && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
+                bitFields = bitField :: bitFields
+                currentIndex += 6
+                bitField = bitField << 6
+            }
+            bitFields.reverse.toArray
+        }).toArray
+    }
 
     final val SQUARE_WEIGHTS: Array[Int] = {
-        val squareWeights = new Array[Int](SQUARES)
+        val squareWeights = new Array[Int](42)
 
-        def evalBoardMask(boardMask: Long) {
-            (0 until SQUARES).foreach((index) ⇒ {
-                if ((boardMask & (1l << index)) != 0l) squareWeights(index) += 1
+        def evalMask(mask: Mask) {
+            (0 until 42).foreach((index) ⇒ {
+                if ((mask & (1l << index)) != 0l) squareWeights(index) += 1
             })
         }
 
-        def evalBoardMasks(boardMasks: Array[Array[Long]]) {
-            boardMasks.foreach(_.foreach(evalBoardMask(_)))
+        def evalBoardMasks(masks: Array[Array[Long]]) {
+            masks.foreach(_.foreach(evalMask(_)))
         }
 
         evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_COLS)
@@ -113,9 +143,8 @@ object Configuration4x4 extends Configuration {
         squareWeights
     }
 
-    final val MAX_SQUARE_WEIGHT = SQUARE_WEIGHTS.max
+    final val MAX_SQUARE_WEIGHT = 13
 
-    final val MIN_SQUARE_WEIGHT = SQUARE_WEIGHTS.min
+    final val MIN_SQUARE_WEIGHT = 3
 
 }
-

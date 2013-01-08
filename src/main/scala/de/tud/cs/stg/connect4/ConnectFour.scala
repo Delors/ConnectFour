@@ -112,11 +112,15 @@ import scala.collection.mutable.Buffer
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 class ConnectFour(
-        final val configuration: Configuration = Configuration6x7,
-        final val DEBUG: Boolean = true,
+        final val board: Board = Board6x7,
+        final val DEBUG: Boolean = false,
         final val GENERATE_DOT: Boolean = false) {
 
-    import configuration._
+    import board._
+
+    private final val LOST = -Int.MaxValue
+
+    private final val WON = Int.MaxValue
 
     /**
       * Represents the current game state: which fields are occupied by which player and which player has
@@ -130,8 +134,8 @@ class ConnectFour(
       *     occupies a square and also encodes the information which player has to make the next move.
       */
     case class Game private (
-            private val occupiedBitField: Long,
-            private val playerBitField: Long) {
+            private final val occupiedBitField: Long,
+            private final val playerBitField: Long) {
 
         import Player._
 
@@ -167,26 +171,16 @@ class ConnectFour(
                 col += 1
             } while (col <= MAX_COL_INDEX)
 
-            // using square weights to sort the list of legal moves does not (yet) pay off: 
-            //            squares.sortWith((s1, s2) ⇒ SQUARE_WEIGHTS(s1) < SQUARE_WEIGHTS(s2))
+            // start with the columns in the middle as the square weights of these columns are higher:    
+            if (squares.size > 5) {
+                val s0 = squares(0)
+                squares.update(0, squares(3))
+                squares.update(3, s0)
 
-            // sorting by first considering the columns in the middle does not (yet) pay off: 
-            //            squares.sortWith((s1, s2) ⇒ java.lang.Math.abs(column(s1) - 3) <= java.lang.Math.abs(column(s2) - 3))
-
-            // starting with the columns in the middle as these columns are generally more relevant does not (yet) pay off:    
-            //            if (squares.size > 6) {
-            //                val s0 = squares(0)
-            //                squares.update(0, squares(3))
-            //                squares.update(3, s0)
-            //
-            //                val s1 = squares(1)
-            //                squares.update(1, squares(2))
-            //                squares.update(2, s1)
-            //
-            //                val s2 = squares(2)
-            //                squares.update(2, squares(4))
-            //                squares.update(4, s2)
-            //            }
+                val s1 = squares(1)
+                squares.update(1, squares(2))
+                squares.update(2, s1)
+            }
             squares
         }
 
@@ -258,11 +252,34 @@ class ConnectFour(
             new Game(
                 occupiedBitField | squareMask /* put a man in the square */ ,
                 if (turnOfPlayer == 0l)
-                    playerBitField | (1l << 63) /* The BLACK player (ID = 1) is next. */
+                    // The BLACK player (ID = 1) is next. 
+                    playerBitField | (1l << 63)
                 else
-                    (playerBitField | squareMask) &
-                        // we have to mask the most significant bit (the 64th bit)
-                        java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
+                    // We have to mask the most significant bit (the 64th bit).
+                    (playerBitField | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
+            )
+        }
+
+        /**
+          * Creates a new game state object by putting a man in the given square and updating the
+          * information which player has to make the next move.
+          *
+          * ==Prerequisites==
+          * The squares below the square have to be occupied and the specified square has to be empty.
+          * However, both is not checked.
+          *
+          * @param square The mask that masks the respective square.
+          * @return The updated game state.
+          */
+        /*TODO use method*/ def makeMove(square: Mask): Game = {
+            new Game(
+                occupiedBitField | square /* put a man in the square */ ,
+                if (turnOfPlayer == 0l)
+                    // The BLACK player (ID = 1) is next. 
+                    playerBitField | (1l << 63)
+                else
+                    // We have to mask the most significant bit (the 64th bit).
+                    (playerBitField | square) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
             )
         }
 
@@ -278,7 +295,9 @@ class ConnectFour(
           * ==Note==
           * Every call to this method (re)analyses the board.
           */
-        def determineState(): State = {
+        def determineState(): State = determineState(occupiedBitField, playerBitField)
+
+        private def determineState(occupiedBitField: Long, playerBitField: Long): State = {
             // 1. check if we can find a line of four connected men
             val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
             val allMasksCount = allMasks.size
@@ -295,56 +314,60 @@ class ConnectFour(
                 m += 1
             } while (m < allMasksCount)
 
-            // 2. check if the game is finished 
-            if (allSquaresOccupied) return DRAWN
-
-            // 3. the game is not yet decided
-            NOT_FINISHED
+            // 2. check if the game is finished or not yet decided 
+            if ((occupiedBitField & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK /*Are all squares occupied?*/ )
+                DRAWN
+            else
+                NOT_FINISHED
         }
 
         /**
-          * Determines how many lines of four men each player may be able to gain.
-          * A positive value means that the white player (the beginning player) has an advantage;
-          * a negative value means that the black player has an advantage.
+          * Scores a board by simply calculating the product of the square weights for each player. This
+          * scoring function is extremely fast.
           */
         def score(): Int = {
-            var value: Int = 0
-            val allMasks = ALL_MASKS_FOR_CONNECT4_CHECK
-            var o = 0
+            // The product of the square weights occupied by each player. (The more "high-valued" squares
+            // a player has, the better.)
+
+            var whiteSquaresCount = 0
+            var blackSquaresCount = 0
+            var productOfSquareWeightsWhite: Long = 1l
+            var productOfSquareWeightsBlack: Long = 1l
+            var whiteLastSquareWeight: Long = 1l
+            var blackLastSquareWeight: Long = 1l
+
+            var col = 0
             do {
-                val masksPerOrientation = allMasks(o)
-                var x = 0
-                val xMax = masksPerOrientation.length
-                do { // for all columns, rows, diagonals...
-
-                    val perLineMasks = masksPerOrientation(x)
-                    var y = 0
-                    val yMax = perLineMasks.length
-                    val essentialSquaresMask = ALL_ESSENTIAL_SQUARES_MASKS(o)(x)
-
-                    do { // for all potential lines of four connected men in a row, column, diagonal... 
-                        val mask = perLineMasks(y)
-                        (occupiedBitField & mask) match {
-
-                            case `mask` ⇒ /* all four squares are already occupied  => continue */
-                            case 0      ⇒ /* no square is occupied => continue */
-                            case subMask ⇒ /* some fields are already occupied */ {
-                                // let's check if we can potentially extend it to a line of four connected
-                                // men
-                                (playerBitField & subMask) match {
-                                    case `subMask` ⇒ value += { if ((subMask & essentialSquaresMask) != 0) 10 else 1 }
-                                    case 0         ⇒ value -= { if ((subMask & essentialSquaresMask) != 0) 10 else 1 }
-                                    case _         ⇒ /*continue*/
-                                }
-                            }
+                var mask = 1l << col
+                var row = 0
+                do {
+                    if ((occupiedBitField & mask) == 0l /*Is not occupied?*/ ) {
+                        row = ROWS // <=> break
+                        // TODO Evaluate if it is advantageous to change the score when a field is not occupied but can be used to get a line of four connected men
+                    }
+                    else {
+                        if ((playerBitField & mask) == 0l /*Occupied by white player?*/ ) {
+                            whiteLastSquareWeight = SQUARE_WEIGHTS(squareId(row, col)) / 2
+                            productOfSquareWeightsWhite *= whiteLastSquareWeight
+                            whiteSquaresCount += 1
                         }
-                        y += 1
-                    } while (y < yMax)
-                    x += 1
-                } while (x < xMax)
-                o += 1
-            } while (o < 4 /* we can have a line of four connected men in one of the two diagonals or in a column or in a row*/ )
-            value
+                        else {
+                            blackLastSquareWeight = SQUARE_WEIGHTS(squareId(row, col)) / 2
+                            productOfSquareWeightsBlack *= blackLastSquareWeight
+                            blackSquaresCount += 1
+                        }
+                    }
+                    row += 1
+                    mask = mask << COLS
+                } while (row <= ROWS)
+                col += 1
+            } while (col <= COLS)
+
+            (whiteSquaresCount - blackSquaresCount) match {
+                case 1  ⇒ (productOfSquareWeightsWhite / whiteLastSquareWeight - productOfSquareWeightsBlack).toInt
+                case -1 ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack / blackLastSquareWeight).toInt
+                case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
+            }
         }
 
         /**
@@ -359,13 +382,11 @@ class ConnectFour(
           * not defined when the game was already won by a player before the last move.
           *
           * @param depth The remaining number of levels that should be explored.
-          * @param maxDepth The overall number of levels that should be explored.
           * @param alpha The the best value that the current player can achieve (Initially -Int.MaxValue).
           * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
           */
         private[connect4] def negamax(
             depth: Int,
-            maxDepth: Int,
             alpha: Int,
             beta: Int,
             nodeLabel: String): Int = {
@@ -401,7 +422,7 @@ class ConnectFour(
                 val legalMove = legalMoves(l)
                 val newGame = makeMove(legalMove)
                 val newNodeLabel = if (GENERATE_DOT) { nodeLabel + column(legalMove)+"↓" } else ""
-                var value: Int = -newGame.negamax(depth - 1, maxDepth, -beta, -newAlpha, newNodeLabel)
+                var value: Int = -newGame.negamax(depth - 1, -beta, -newAlpha, newNodeLabel)
                 if (GENERATE_DOT) println("\""+nodeLabel+"\" -> "+"\""+newNodeLabel+"\";")
                 if (GENERATE_DOT) println("\""+newNodeLabel+"\" [shape=record,label=\"{alpha="+(-beta)+"|beta="+(-newAlpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
                 if (value >= beta) {
@@ -420,8 +441,7 @@ class ConnectFour(
         }
 
         /**
-          * Proposes a ''move'' given the current game state. The minimax algorithm is used
-          * to determine it.
+          * Proposes a ''move'' given the current game state. The minimax algorithm is used to determine it.
           *
           * @param aiStrength The strength of the ai. The strength determines the number of rounds the
           *     the ai looks ahead; a round consists of one move by each player. It should be at least 3 for
@@ -440,14 +460,14 @@ class ConnectFour(
                 val move = legalMoves(l)
                 val newGame = makeMove(move)
                 val newNodeLabel = if (GENERATE_DOT) String.valueOf(column(move))+"↓" else ""
-                var value: Int = -newGame.negamax(maxDepth - 1, maxDepth, -Int.MaxValue, -alpha, newNodeLabel) //* playerFactor
+                var value: Int = -newGame.negamax(maxDepth - 1, -Int.MaxValue, -alpha, newNodeLabel) //* playerFactor
                 if (GENERATE_DOT) println("\"root\" -> "+"\""+newNodeLabel+"\";")
                 if (GENERATE_DOT) println("\""+newNodeLabel+"\" [shape=record,label=\"{alpha="+(-Int.MaxValue)+"|beta="+(-alpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
-                if (DEBUG) println("Move: "+(column(move))+" => "+value+" (better if larger than a previous move)")
+                if (DEBUG) println("Move: "+(column(move))+" => "+{ value match { case `WON` ⇒ "will win"; case `LOST` ⇒ "will loose"; case v ⇒ String.valueOf(v)+" (better if larger than a previous move)" } })
 
                 // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
                 // choose a move with a value that is equal to the value of a previously evaluated move, it
-                // could lead to a move that is actually advantageous for the opponent because some part of
+                // could lead to a move that is actually advantageous for the opponent because a relevant part of
                 // the search true was cut. 
                 // Therefore, it is not directly possible to evaluate all equally good moves and we have to
                 // use ">" here instead of ">=".

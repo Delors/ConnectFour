@@ -89,7 +89,20 @@ package de.tud.cs.stg
   */
 package object connect4 {
 
-    implicit def connectFourToConfiguration(connectFour: ConnectFour): Configuration = connectFour.configuration
+    implicit def connectFourToBoard(connectFour: ConnectFour): Board = connectFour.board
+
+    /**
+      * Type used to specify that the respective long value is a bit mask to get information about which squares
+      * are occupied and – if so – by which player. The range of valid values depends on the concrete size of
+      * the board. However, it is always a value between 1 (mask for the square in the lower left-hand corner)
+      * and 2^49 in case of a board with seven rows and seven columns.
+      */
+    type Mask = Long
+
+    // TODO Use value classes.
+    //    class Mask(val mask: Long) extends AnyVal {
+    //
+    //    }
 
     /**
       * Type used to indicate the state of the game. Three states are distinguished:
@@ -103,6 +116,11 @@ package object connect4 {
       */
     type State = Long
 
+    // TODO Use value classes.
+    //    class State(val state: Long) extends AnyVal {
+    //        def isNotFinished: Boolean = state == NOT_FINISHED
+    //    }
+
     /**
       * Indicates that the game is not finished. I.e., no player has won and some squares are still empty.
       */
@@ -113,12 +131,18 @@ package object connect4 {
       */
     final val DRAWN: State = 0l
 
+//    class Player(val playerId : Int) extends AnyVal {
+//        
+//    }
+    
     /**
-      * Type used to specify that the respective long value is a bit mask to get information about which squares
-      * are occupied and – if so – by which player. The range of valid values depends on the concrete size of
-      * the board. However, it is always a value between 1 (mask for the square in the lower left-hand corner)
-      * and 2^49 in case of a board with seven rows and seven columns.
+      * Id of the white player; the player that always makes the first move.
       */
-    type Mask = Long
+    final val WHITE_PLAYER_ID = 0
+
+    /**
+      * Id of the black player.
+      */
+    final val BLACK_PLAYER_ID = 1
 
 }

@@ -49,7 +49,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     // Test Fixture
     //
 
-    val connectFour = new ConnectFour(Configuration6x7)
+    val connectFour = new ConnectFour(Board6x7)
     import connectFour._
 
     val b0 = new Game
@@ -156,25 +156,25 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("if the black player has three men in a line which can be completed to a line of four connected men the AI should make the move that prevents the black player from (immediately) winning") {
-            -bBlackCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bBlackCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bBlackCanWin.makeMove(13).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(13).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
 
-            -bBlackCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
-            -bBlackCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
-            -bBlackCanWin.makeMove(13).negamax(3, 4, -Int.MaxValue, -78, "") should be >= -78
+            -bBlackCanWin.makeMove(11).negamax(3, -Int.MaxValue, -78, "") should be >= -78
+            -bBlackCanWin.makeMove(12).negamax(3, -Int.MaxValue, -78, "") should be >= -78
+            -bBlackCanWin.makeMove(13).negamax(3, -Int.MaxValue, -78, "") should be >= -78
 
             bBlackCanWin.proposeMove(2) should be(24)
         }
 
         it("if the white player has three men in a line which can be completed to a line of four connected men the AI should make the move that prevents the white player from (immediately) winning") {
-            -bWhiteCanWin.makeMove(0).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(8).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(9).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(10).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(11).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(12).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(6).negamax(3, 4, -Int.MaxValue, Int.MaxValue, "") should be > -2147483647
+            -bWhiteCanWin.makeMove(0).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(8).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(9).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(10).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(6).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be > -2147483647
 
             bWhiteCanWin.proposeMove(3) should be(6)
             bWhiteCanWin.proposeMove(2) should be(6)

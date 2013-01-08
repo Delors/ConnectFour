@@ -35,12 +35,12 @@ package de.tud.cs.stg.connect4
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Configuration of a specific board. The implementation supports boards that have at least 4 rows and 4
+  * Information of a specific board. The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 7 rows and 7 columns.
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-trait Configuration {
+trait Board {
 
     /**
       * Recommendation w.r.t. the processing time that is required to evaluate the search tree up to a specific
@@ -150,6 +150,12 @@ trait Configuration {
         arrayBuffer.toArray
     }
 
+    /**
+      * A square is essential w.r.t. a specific column, row, or one of the diagonals when it is absolutely
+      * necessary to poses the respective square to be able get a line of four connected men. For example,
+      * in the first column the third and fourth squares are essential. A player who does not get
+      * hold of these two squares will never be able to get a line of four connected men in the first column.
+      */
     final lazy val ALL_ESSENTIAL_SQUARES_MASKS: Array[Array[Mask]] =
         ALL_MASKS_FOR_CONNECT4_CHECK.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
             (Long.MaxValue /: perLineMasks)(_ & _)
