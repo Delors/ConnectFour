@@ -129,15 +129,13 @@ class ConnectFour(
       * ==Note==
       * The game state object is immutable. I.e., every update creates a new instance.
       *
-      * @param occupiedBitField Encodes which squares are occupied.
-      * @param playerBitField In combination with the `occupiedBitField` encodes the information which player
+      * @param occupiedInfo Encodes which squares are occupied.
+      * @param playerInfo In combination with `occupiedInfo` encodes the information which player
       *     occupies a square and also encodes the information which player has to make the next move.
       */
     case class Game private (
-            private final val occupiedBitField: Long,
-            private final val playerBitField: Long) {
-
-        import Player._
+            private final val occupiedInfo: Long,
+            private final val playerInfo: Long) {
 
         /**
           * Creates a new empty board and sets the information
@@ -185,56 +183,53 @@ class ConnectFour(
         }
 
         /**
-          * Returns the id (0 == WHITE or 1 == BLACK) of the player that has to make the next move.
+          * Returns the player that has to make the next move.
           */
-        def turnOfPlayer(): Long = playerBitField >>> 63
+        def turnOfPlayer(): Player = Player(playerInfo >>> 63)
 
         /**
-          * Returns `Some(id)` of the lowest square in the respective column that is free or `None` otherwise.
+          * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None` otherwise.
           *
           * ==Note==
-          * This method is not intended to be used by the AI, because it is not optimized.
+          * This method is not optimized and is therefore not intended to be used by the ai.
           *
           * @param column A valid column identifier ([0..MAX_COL_INDEX]).
           * @return The id of the lowest square in the given column that is free.
           */
-        def lowestFreeSquareInColumn(column: Int): Option[Int] = {
+        def lowestFreeSquareInColumn(column: Int): Option[Int] =
             (column to SQUARES by COLS) collectFirst ({ case squareId if !isOccupied(squareId) ⇒ squareId })
-        }
 
         /**
           * Tests if the square with the given id is occupied.
           */
-        def isOccupied(squareId: Int): Boolean = (occupiedBitField & (1l << squareId)) != 0l
+        def isOccupied(squareId: Int): Boolean = (occupiedInfo & (1l << squareId)) != 0l
 
         /**
           * True if all squares are occupied.
           */
-        def allSquaresOccupied(): Boolean = (occupiedBitField & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK
+        def allSquaresOccupied(): Boolean = (occupiedInfo & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK
 
         /**
-          * Returns the id of the player that occupies the given square; the result is only defined iff the
+          * Returns the player that occupies the given square. The result is only defined iff the
           * square is occupied.
           */
-        def playerId(squareId: Int): Int = if ((playerBitField & (1l << squareId)) == 0l) 0 else 1
+        def player(squareId: Int): Player =
+            if ((playerInfo & (1l << squareId)) == 0l)
+                Player.white
+            else
+                Player.black
 
         /**
           * Returns the player that occupies the squares identified by the given mask.
-          * If not all of the squares are occupied or if not all squares are occupied by men of the
-          * same player, None is returned.
+          * If not all squares are occupied by the same player `None` is returned.
+          * The result is only defined iff all identified squares are occupied.
           */
-        def player(mask: Mask): Option[Player.Value] = {
-            if ((occupiedBitField & mask) == mask) {
-                playerBitField & mask match {
-                    case `mask` ⇒ Some(Player.BLACK)
-                    case 0l     ⇒ Some(Player.WHITE)
-                    case _      ⇒ None
-                }
+        def player(mask: Mask): Option[Player] =
+            playerInfo & mask match {
+                case `mask` ⇒ Some(Player.black)
+                case 0l     ⇒ Some(Player.white)
+                case _      ⇒ None
             }
-            else {
-                None
-            }
-        }
 
         /**
           * Creates a new game state object by putting a man in the given square and updating the
@@ -250,13 +245,13 @@ class ConnectFour(
         def makeMove(squareId: Int): Game = {
             val squareMask = 1l << squareId
             new Game(
-                occupiedBitField | squareMask /* put a man in the square */ ,
-                if (turnOfPlayer == 0l)
+                occupiedInfo | squareMask /* put a man in the square */ ,
+                if (turnOfPlayer() == Player.white)
                     // The BLACK player (ID = 1) is next. 
-                    playerBitField | (1l << 63)
+                    playerInfo | (1l << 63)
                 else
                     // We have to mask the most significant bit (the 64th bit).
-                    (playerBitField | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
+                    (playerInfo | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
             )
         }
 
@@ -273,13 +268,13 @@ class ConnectFour(
           */
         /*TODO use method*/ def makeMove(square: Mask): Game = {
             new Game(
-                occupiedBitField | square /* put a man in the square */ ,
-                if (turnOfPlayer == 0l)
+                occupiedInfo | square /* put a man in the square */ ,
+                if (turnOfPlayer().isWhite)
                     // The BLACK player (ID = 1) is next. 
-                    playerBitField | (1l << 63)
+                    playerInfo | (1l << 63)
                 else
                     // We have to mask the most significant bit (the 64th bit).
-                    (playerBitField | square) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
+                    (playerInfo | square) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
             )
         }
 
@@ -295,19 +290,19 @@ class ConnectFour(
           * ==Note==
           * Every call to this method (re)analyses the board.
           */
-        def determineState(): State = determineState(occupiedBitField, playerBitField)
+        def determineState(): State = determineState(occupiedInfo, playerInfo)
 
-        private def determineState(occupiedBitField: Long, playerBitField: Long): State = {
+        private def determineState(occupiedInfo: Long, playerInfo: Long): State = {
             // 1. check if we can find a line of four connected men
             val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
             val allMasksCount = allMasks.size
             var m = 0
             do {
                 val mask = allMasks(m)
-                if ((occupiedBitField & mask) == mask) {
-                    (playerBitField & mask) match {
-                        case `mask` ⇒ return mask
-                        case 0l     ⇒ return mask
+                if ((occupiedInfo & mask) == mask) {
+                    (playerInfo & mask) match {
+                        case `mask` ⇒ return State(mask)
+                        case 0l     ⇒ return State(mask)
                         case _      ⇒ /*continue*/
                     }
                 }
@@ -315,10 +310,10 @@ class ConnectFour(
             } while (m < allMasksCount)
 
             // 2. check if the game is finished or not yet decided 
-            if ((occupiedBitField & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK /*Are all squares occupied?*/ )
-                DRAWN
+            if ((occupiedInfo & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK /*Are all squares occupied?*/ )
+                State.drawn
             else
-                NOT_FINISHED
+                State.notFinished
         }
 
         /**
@@ -333,39 +328,38 @@ class ConnectFour(
             var blackSquaresCount = 0
             var productOfSquareWeightsWhite: Long = 1l
             var productOfSquareWeightsBlack: Long = 1l
-            var whiteLastSquareWeight: Long = 1l
-            var blackLastSquareWeight: Long = 1l
+            var bestSquareWeightOfNextMove: Int = 1
 
             var col = 0
             do {
                 var mask = 1l << col
                 var row = 0
                 do {
-                    if ((occupiedBitField & mask) == 0l /*Is not occupied?*/ ) {
-                        row = ROWS // <=> break
-                        // TODO Evaluate if it is advantageous to change the score when a field is not occupied but can be used to get a line of four connected men
+                    if ((occupiedInfo & mask) == 0l /*Is not occupied?*/ ) {
+                        val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
+                        if (squareWeight > bestSquareWeightOfNextMove)
+                            bestSquareWeightOfNextMove = squareWeight
+                        row = ROWS // <=> break                        
                     }
                     else {
-                        if ((playerBitField & mask) == 0l /*Occupied by white player?*/ ) {
-                            whiteLastSquareWeight = SQUARE_WEIGHTS(squareId(row, col)) / 2
-                            productOfSquareWeightsWhite *= whiteLastSquareWeight
+                        if ((playerInfo & mask) == 0l /*Occupied by white player?*/ ) {
+                            productOfSquareWeightsWhite *= SQUARE_WEIGHTS(squareId(row, col)) / 2
                             whiteSquaresCount += 1
                         }
                         else {
-                            blackLastSquareWeight = SQUARE_WEIGHTS(squareId(row, col)) / 2
-                            productOfSquareWeightsBlack *= blackLastSquareWeight
+                            productOfSquareWeightsBlack *= SQUARE_WEIGHTS(squareId(row, col)) / 2
                             blackSquaresCount += 1
                         }
                     }
                     row += 1
                     mask = mask << COLS
-                } while (row <= ROWS)
+                } while (row < ROWS)
                 col += 1
-            } while (col <= COLS)
+            } while (col < COLS)
 
             (whiteSquaresCount - blackSquaresCount) match {
-                case 1  ⇒ (productOfSquareWeightsWhite / whiteLastSquareWeight - productOfSquareWeightsBlack).toInt
-                case -1 ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack / blackLastSquareWeight).toInt
+                case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack * bestSquareWeightOfNextMove).toInt
+                case -1 ⇒ (productOfSquareWeightsWhite * bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
                 case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
             }
         }
@@ -401,12 +395,12 @@ class ConnectFour(
 
             // 1. check if the game is finished
             val state = determineState()
-            if (state == DRAWN) return 0
-            if (state > 0 /* <=> the player who made the last move has won */ ) return -Int.MaxValue
+            if (state.isDrawn) return 0
+            if (state.hasWinner /* <=> the player who made the last move has won */ ) return -Int.MaxValue
 
             // 2. check if we have to abort exploring the search tree and have to assess the game state
             if (depth <= 0) {
-                if (turnOfPlayer() == 0 /*Player.WHITE.id*/ )
+                if (turnOfPlayer().isWhite)
                     return score()
                 else
                     return -score()
@@ -424,7 +418,7 @@ class ConnectFour(
                 val newNodeLabel = if (GENERATE_DOT) { nodeLabel + column(legalMove)+"↓" } else ""
                 var value: Int = -newGame.negamax(depth - 1, -beta, -newAlpha, newNodeLabel)
                 if (GENERATE_DOT) println("\""+nodeLabel+"\" -> "+"\""+newNodeLabel+"\";")
-                if (GENERATE_DOT) println("\""+newNodeLabel+"\" [shape=record,label=\"{alpha="+(-beta)+"|beta="+(-newAlpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
+                if (GENERATE_DOT) println("\""+newNodeLabel+"\" [label=\"{alpha="+(-beta)+"|beta="+(-newAlpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
                 if (value >= beta) {
                     if (GENERATE_DOT) println("\""+nodeLabel+"\" [fillcolor=red];")
                     // there will be no better move (we don't mind if there are other equally good moves)
@@ -479,7 +473,7 @@ class ConnectFour(
             } while (l < legalMovesCount)
             if (GENERATE_DOT) println("\"root\" [label="+alpha+"];\n}")
 
-            if (alpha == -Int.MaxValue && aiStrength > 1)
+            if (alpha == -Int.MaxValue && aiStrength > 2)
                 // When the AI determines that it will always loose in the long run (when the opponent plays 
                 // perfectly) it may still be possible to prevent the opponent from winning immediately and
                 // hence, if the opponent does not play perfectly, to still win the game. 
@@ -496,7 +490,7 @@ class ConnectFour(
           * 5      ◼
           * 4      ○
           * 3      ◼
-          * 2      0   ○
+          * 2      ○   ○
           * 1  ◼ ◼ ◼ ◼ ○
           * 0  ○ ◼ ○ ◼ ○   ○
           *
@@ -510,15 +504,7 @@ class ConnectFour(
                 string += r+"  " // add the row index
                 for (c ← 0 to MAX_COL_INDEX) {
                     val sid = squareId(r, c)
-                    if (isOccupied(sid)) {
-                        if (playerId(sid) == Player.WHITE.id)
-                            string += "○ " // White
-                        else
-                            string += "◼ " // Black   
-                    }
-                    else {
-                        string += "  "
-                    }
+                    if (isOccupied(sid)) string += player(sid).symbol+" " else string += "  "
                 }
                 string += "\n"
             }
@@ -531,7 +517,7 @@ class ConnectFour(
         /**
           * Returns a human readable representation of the current game state.
           */
-        override def toString() = "Next Player: "+Player(turnOfPlayer.toInt)+"\nBoard:\n"+boardToString
+        override def toString() = "Next Player: "+turnOfPlayer()+"\nBoard:\n"+boardToString
 
     }
 }

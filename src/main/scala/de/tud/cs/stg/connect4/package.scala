@@ -32,6 +32,8 @@
  */
 package de.tud.cs.stg
 
+import scala.language.implicitConversions
+
 /**
   * Implementation of "Connect Four" (cf. [[http://en.wikipedia.org/wiki/Connect_Four Wikipedia: Connect Four]]) using
   * the minimax algorithm as the foundation for the implementation of the artificial intelligence.
@@ -103,46 +105,4 @@ package object connect4 {
     //    class Mask(val mask: Long) extends AnyVal {
     //
     //    }
-
-    /**
-      * Type used to indicate the state of the game. Three states are distinguished:
-      *  1. The game is not finished ([[de.tud.cs.stg.connect4.NOT_FINISHED]]).
-      *  1. The game is drawn ([[de.tud.cs.stg.connect4.DRAWN]]).
-      *  1. Some player has won the game.
-      * The value associated with the first state is the long value -1l; the long value associated with the
-      * second state (DRAWN) is 0l. The third case uses values in the range: [15...2^(7x7)] to (a) identify
-      * that some player has won and (b) to simultaneously specify the mask that can be used to identify the
-      * line of four connect men on the board.
-      */
-    type State = Long
-
-    // TODO Use value classes.
-    //    class State(val state: Long) extends AnyVal {
-    //        def isNotFinished: Boolean = state == NOT_FINISHED
-    //    }
-
-    /**
-      * Indicates that the game is not finished. I.e., no player has won and some squares are still empty.
-      */
-    final val NOT_FINISHED: State = -1l
-
-    /**
-      * Indicates that the game is drawn. I.e., all squares are occupied and no player has won.
-      */
-    final val DRAWN: State = 0l
-
-//    class Player(val playerId : Int) extends AnyVal {
-//        
-//    }
-    
-    /**
-      * Id of the white player; the player that always makes the first move.
-      */
-    final val WHITE_PLAYER_ID = 0
-
-    /**
-      * Id of the black player.
-      */
-    final val BLACK_PLAYER_ID = 1
-
 }

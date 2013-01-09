@@ -32,28 +32,43 @@
  */
 package de.tud.cs.stg.connect4
 
-class Player(val id: Int) extends AnyVal {
+/**
+  * Indicates the state of the game. Basically, three states are distinguished:
+  *  1. The game is not finished ([[de.tud.cs.stg.connect4.State.notFinished]]).
+  *  1. The game is drawn ([[de.tud.cs.stg.connect4.State.drawn]]).
+  *  1. Some player has won the game.
+  * The value associated with the first state (`notFinished`) is the long value -1l; the long value associated
+  * with the second state (`drawn`) is 0l. The third case uses values in the range: [15...2^(7x7)] to (a)
+  * identify that some player has won and (b) to simultaneously specify the mask that can be used to identify
+  * the line of four connect men on the board.
+  */
+class State(val state: Long) extends AnyVal {
 
-    def isWhite: Boolean = id == 0
+    def isNotFinished: Boolean = state == -1l
 
-    def isBlack: Boolean = id == 1
+    def isDrawn: Boolean = state == 0l
 
-    def symbol: String = if (id == 0) "○" else "◼"
+    def isFinished: Boolean = state >= 0l
 
-    override def toString(): String = if (id == 0) "White" else "Black"
+    def hasWinner: Boolean = state > 0l
+
+    def getMask: Long = state
 }
 
-object Player {
-
-    def apply(playerId: Long): Player = if (playerId == 0l) white else black
+object State {
 
     /**
-      * Id of the white player; the player that always makes the first move.
+      * @param mask The mask that identifies the line of four connected men of the wining player.
       */
-    final val white: Player = new Player(0)
+    def apply(mask: Mask): State = new State(mask)
 
     /**
-      * Id of the black player.
+      * Indicates that the game is not finished. I.e., no player has won and some squares are still empty.
       */
-    final val black: Player = new Player(1)
+    final val notFinished: State = new State(-1l)
+
+    /**
+      * Indicates that the game is drawn. I.e., all squares are occupied and no player has won.
+      */
+    final val drawn: State = new State(0l)
 }

@@ -56,7 +56,7 @@ object CLI extends scala.App {
 
         private def playerMove(game: Game, aiStrength: Int): (Game, State) = {
             val state = game.determineState
-            if (state == NOT_FINISHED) {
+            if (state.isNotFinished) {
                 println(game);
                 { print("Choose column: "); val b = in.read(); println; b } match {
                     case 'p' ⇒ { // let the ai make a proposal
@@ -73,7 +73,7 @@ object CLI extends scala.App {
                             case _              ⇒ println("The column has no empty square.")
                         }
                     }
-                    case 'a' ⇒ return (game, NOT_FINISHED)
+                    case 'a' ⇒ return (game, State.notFinished)
                     case _ ⇒ println(
                         "Please enter:\n"+
                             "\tp - to get a proposal for a reasonable move.\n"+
@@ -89,7 +89,7 @@ object CLI extends scala.App {
 
         private def aiMove(game: Game, aiStrength: Int): (Game, State) = {
             val state = game.determineState
-            if (state == NOT_FINISHED) {
+            if (state.isNotFinished) {
                 val startTime = System.currentTimeMillis()
                 val theMove = game.proposeMove(aiStrength)
                 val requiredTime = (System.currentTimeMillis() - startTime) / 1000.0d
@@ -120,9 +120,10 @@ object CLI extends scala.App {
             {
                 print("Do you want to start (y/n)?"); val c = in.read(); println
                 (if (c == 'y') playerMove(new Game, aiStrength) else aiMove(new Game, aiStrength)) match {
-                    case (_, NOT_FINISHED) ⇒ println("Game aborted.")
-                    case (_, DRAWN)        ⇒ println("This game is drawn.")
-                    case (game, mask) ⇒ {
+                    case (_, State.notFinished) ⇒ println("Game aborted.")
+                    case (_, State.drawn)        ⇒ println("This game is drawn.")
+                    case (game, state) ⇒ {
+                        val mask = state.getMask
                         val Some(player) = game.player(mask)
                         println(player+" has won!\n"+connectFour.maskToString(mask))
                     }
