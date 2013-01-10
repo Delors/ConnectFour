@@ -138,55 +138,18 @@ class ConnectFour(
             private final val playerInfo: Long) {
 
         /**
-          * Creates a new empty board and sets the information
-          * that it is the first player(ID = 0; White)'s turn.
+          * Creates a new empty board and sets the information that it is the first player(ID = 0; White)'s turn.
           */
         def this() { this(0l /* all fields are empty */ , 0l) }
 
-        //        /**
-        //          * Returns the list of square ids where the next man can be placed.
-        //          */
-        //        @deprecated
-        //        def legalMoves(): Buffer[Int] = {
-        //            // In the following, a do-while loop is used to improve the performance. 
-        //            // Scala's for-loops (2.9.x) are (still) slow(er) and this is one of 
-        //            // the core methods used by the minimax algorithm.
-        //            var squares = new ArrayBuffer[Int](COLS)
-        //            var col = 0
-        //            // in each column find the lowest square that is empty
-        //            do {
-        //                var row = 0
-        //                var continue = true
-        //                do {
-        //                    val square: Int = squareId(row, col)
-        //                    if (!isOccupied(square)) {
-        //                        squares.+=(square)
-        //                        continue = false
-        //                    }
-        //                    else {
-        //                        row += 1
-        //                    }
-        //                } while (continue && row <= MAX_ROW_INDEX)
-        //                col += 1
-        //            } while (col <= MAX_COL_INDEX)
-        //
-        //            // start with the columns in the middle as the square weights of these columns are higher:    
-        //            if (squares.size > 5) {
-        //                val s0 = squares(0)
-        //                squares.update(0, squares(3))
-        //                squares.update(3, s0)
-        //
-        //                val s1 = squares(1)
-        //                squares.update(1, squares(2))
-        //                squares.update(2, s1)
-        //            }
-        //            squares
-        //        }
-
+        /**
+          * Iterator over the masks that select the squares where the current player is allowed to put its
+          * next man.
+          */
         def nextMoves(): scala.collection.Iterator[Mask] = {
             new Iterator[Mask] {
 
-                private var col = (COLS / 2)-1
+                private var col = (COLS / 2) - 1
                 private var startCol = -1
                 private final val mask = 1l << UPPER_LEFT_SQUARE_INDEX
 
@@ -265,31 +228,6 @@ class ConnectFour(
                 case 0l     ⇒ Some(Player.white)
                 case _      ⇒ None
             }
-
-        //        /**
-        //          * Creates a new game state object by putting a man in the given square and updating the
-        //          * information which player has to make the next move.
-        //          *
-        //          * ==Prerequisites==
-        //          * The squares below the square have to be occupied and the specified square has to be empty.
-        //          * However, both is not checked.
-        //          *
-        //          * @param squareId The id of the square where the man is placed.
-        //          * @return The updated game state.
-        //          */
-        //        @deprecated
-        //        def makeMove(squareId: Int): Game = {
-        //            val squareMask = 1l << squareId
-        //            new Game(
-        //                occupiedInfo | squareMask /* put a man in the square */ ,
-        //                if (turnOfPlayer() == Player.white)
-        //                    // The BLACK player (ID = 1) is next. 
-        //                    playerInfo | (1l << 63)
-        //                else
-        //                    // We have to mask the most significant bit (the 64th bit).
-        //                    (playerInfo | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
-        //            )
-        //        }
 
         /**
           * Creates a new game state object by putting a man in the given square and updating the
