@@ -121,7 +121,7 @@ object CLI extends scala.App {
                 print("Do you want to start (y/n)?"); val c = in.read(); println
                 (if (c == 'y') playerMove(new Game, aiStrength) else aiMove(new Game, aiStrength)) match {
                     case (_, State.notFinished) ⇒ println("Game aborted.")
-                    case (_, State.drawn)        ⇒ println("This game is drawn.")
+                    case (_, State.drawn)       ⇒ println("This game is drawn.")
                     case (game, state) ⇒ {
                         val mask = state.getMask
                         val Some(player) = game.player(mask)

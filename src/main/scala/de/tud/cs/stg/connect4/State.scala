@@ -52,12 +52,19 @@ class State(val state: Long) extends AnyVal {
 
     def hasWinner: Boolean = state > 0l
 
-    def getMask: Long = state
+    /**
+      * Returns the mask that identifies the line of four of the winning player.
+      *
+      * The return value is only defined iff this game has a winner.
+      */
+    def getMask: Mask = state
 }
 
 object State {
 
     /**
+      * Creates a state object that identifies a game that has ended, because a player has won the game.
+      *
       * @param mask The mask that identifies the line of four connected men of the wining player.
       */
     def apply(mask: Mask): State = new State(mask)

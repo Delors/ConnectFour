@@ -32,28 +32,59 @@
  */
 package de.tud.cs.stg.connect4
 
+/**
+  * Represents the players of a connect four game.
+  *
+  * @param id The id of the player. `0` for the white player and `1` for the black player.
+  * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
+  */
 class Player(val id: Int) extends AnyVal {
 
+    /**
+      * `True` if this player instance represents the white player/the starting player, `false` otherwise.
+      */
     def isWhite: Boolean = id == 0
 
+    /**
+      * `True` if this player instance represents the black player, `false` otherwise.
+      */
     def isBlack: Boolean = id == 1
 
+    /**
+      * A single-character symbol that represents the white player ("○") or the black player ("◼").
+      *
+      * Intended to be used by a command-line interface or for debugging purposes. Requires the use of a fixed-
+      * width font.
+      */
     def symbol: String = if (id == 0) "○" else "◼"
 
+    /**
+      * Returns the name of the player ("white" or "black").
+      */
     override def toString(): String = if (id == 0) "White" else "Black"
 }
 
+/**
+  * Utility methods to create and get player objects.
+  *
+  * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
+  */
 object Player {
 
+    /**
+      * Creates a new player instance.
+      *
+      * @param palyerId The id of the player. The value has to be either `0l` (white player) or `1l` (black player).
+      */
     def apply(playerId: Long): Player = if (playerId == 0l) white else black
 
     /**
-      * Id of the white player; the player that always makes the first move.
+      * The white player; the player that always makes the first move.
       */
     final val white: Player = new Player(0)
 
     /**
-      * Id of the black player.
+      * The black player.
       */
     final val black: Player = new Player(1)
 }
