@@ -53,23 +53,23 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     import connectFour._
 
     val b0 = new Game
-    val b1 = b0.makeMove(4) // White
-    val b2 = b1.makeMove(3) // Black
-    val b3 = b2.makeMove(2) // White
-    val b4 = b3.makeMove(2 + connectFour.COLS * 1) // Black
-    val b5 = b4.makeMove(2 + connectFour.COLS * 2) // White
-    val b6 = b5.makeMove(2 + connectFour.COLS * 3) // Black
-    val b7 = b6.makeMove(2 + connectFour.COLS * 4) // White
-    val b8 = b7.makeMove(2 + connectFour.COLS * 5) // Black
-    val b9 = b8.makeMove(0) // White
-    val b10 = b9.makeMove(7) // Black
-    val b11 = b10.makeMove(11) // White
-    val b12 = b11.makeMove(1) // Black
-    val b13 = b12.makeMove(18) // White
-    val b14 = b13.makeMove(10) // Black
-    val bWHITEWins = b14.makeMove(25) // White
-    val b15 = b14.makeMove(6) // White
-    val bBLACKWins = b15.makeMove(8) // Black
+    val b1 = b0.makeMove(1l << 4) // White
+    val b2 = b1.makeMove(1l << 3) // Black
+    val b3 = b2.makeMove(1l << 2) // White
+    val b4 = b3.makeMove(1l << (2 + connectFour.COLS * 1)) // Black
+    val b5 = b4.makeMove(1l << (2 + connectFour.COLS * 2)) // White
+    val b6 = b5.makeMove(1l << (2 + connectFour.COLS * 3)) // Black
+    val b7 = b6.makeMove(1l << (2 + connectFour.COLS * 4)) // White
+    val b8 = b7.makeMove(1l << (2 + connectFour.COLS * 5)) // Black
+    val b9 = b8.makeMove(1l) // White
+    val b10 = b9.makeMove(1l << (7)) // Black
+    val b11 = b10.makeMove(1l << (11)) // White
+    val b12 = b11.makeMove(1l << (1)) // Black
+    val b13 = b12.makeMove(1l << (18)) // White
+    val b14 = b13.makeMove(1l << (10)) // Black
+    val bWHITEWins = b14.makeMove(1l << (25)) // White
+    val b15 = b14.makeMove(1l << (6)) // White
+    val bBLACKWins = b15.makeMove(1l << (8)) // Black
 
     //Next Player: WHITE
     //Board:
@@ -81,7 +81,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     //0        ◼ ○ ○ ○ 
     //
     //   0 1 2 3 4 5 6 
-    val bBlackCanWin = b0.makeMove(4).makeMove(3).makeMove(5).makeMove(10).makeMove(6).makeMove(17)
+    val bBlackCanWin = b0.makeMove(1l << 4).makeMove(1l << 3).makeMove(1l << 5).makeMove(1l << 10).makeMove(1l << 6).makeMove(1l << 17)
 
     //Next Player: BLACK
     //Board:
@@ -93,7 +93,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     //0    ◼ ◼ ○ ○ ○   
     //
     //   0 1 2 3 4 5 6     
-    val bWhiteCanWin = b0.makeMove(3).makeMove(1).makeMove(4).makeMove(2).makeMove(5)
+    val bWhiteCanWin = b0.makeMove(1l << 3).makeMove(1l << 1).makeMove(1l << 4).makeMove(1l << 2).makeMove(1l << 5)
 
     //
     // Test
@@ -118,12 +118,12 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("on an empty board the set of legal moves are those that put a man in a square in the lowest row") {
-            b0.legalMoves.toSet should be(Set(0, 1, 2, 3, 4, 5, 6))
+            b0.nextMoves.toSet should be(Set(1l, 1l << 1, 1l << 2, 1l << 3, 1l << 4, 1l << 5, 1 << 6))
         }
-
-        it("legal moves are always those that put a men above an occupied square as long as a column is not full") {
-            b9.legalMoves.toSet should be(Set(7 /*col 1*/ , 1 /*col 2*/ , 10 /*col 4*/ , 11 /*col 5*/ , 5 /*col 6*/ , 6 /*col 7*/ ))
-        }
+        //
+        //        it("legal moves are always those that put a men above an occupied square as long as a column is not full") {
+        //            b9.legalMoves.toSet should be(Set(7 /*col 1*/ , 1 /*col 2*/ , 10 /*col 4*/ , 11 /*col 5*/ , 5 /*col 6*/ , 6 /*col 7*/ ))
+        //        }
 
         it("the board is not completely occupied if at least one square is empty") {
             b0.allSquaresOccupied should be(false)
@@ -156,25 +156,25 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("if the black player has three men in a line which can be completed to a line of four connected men the ai should put a man in the square that prevents the black player from (immediately) winning") {
-            -bBlackCanWin.makeMove(11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bBlackCanWin.makeMove(12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bBlackCanWin.makeMove(13).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(1l << 11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(1l << 12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bBlackCanWin.makeMove(1l << 13).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
 
-            bBlackCanWin.proposeMove(2) should be(24)
+            bBlackCanWin.proposeMove(2) should be(1l << 24)
         }
 
         it("if the white player has three men in a line which can be completed to a line of four connected men the ai should make the move that prevents the white player from (immediately) winning") {
-            -bWhiteCanWin.makeMove(0).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(8).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(9).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(10).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
-            -bWhiteCanWin.makeMove(6).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be > -2147483647
+            -bWhiteCanWin.makeMove(1l << 0).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 8).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 9).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 10).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 11).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 12).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be(-2147483647)
+            -bWhiteCanWin.makeMove(1l << 6).negamax(3, -Int.MaxValue, Int.MaxValue, "") should be > -2147483647
 
-            bWhiteCanWin.proposeMove(3) should be(6)
-            bWhiteCanWin.proposeMove(2) should be(6)
-            bWhiteCanWin.proposeMove(1) should be(6)
+            bWhiteCanWin.proposeMove(3) should be(1l << 6)
+            bWhiteCanWin.proposeMove(2) should be(1l << 6)
+            bWhiteCanWin.proposeMove(1) should be(1l << 6)
         }
     }
 }

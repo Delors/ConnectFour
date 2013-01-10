@@ -94,12 +94,26 @@ trait Board {
       */
     final def column(squareId: Int): Int = squareId % COLS
 
+    final def column(mask: Mask): Int = {
+        for (col ← 0 to MAX_COL_INDEX) {
+            if ((mask & columnMasks(col)) == mask) return col
+        }
+        sys.error("the mask:\n"+maskToString(mask)+"\ndoes not identify a unique column")
+    }
+
     /**
       * Masks the squares in the top-level row of the board.
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
     val TOP_ROW_BOARD_MASK: Mask
+
+    final lazy val columnMasks: Array[Mask] = {
+        val mask = (1l /: (1 to ROWS))((v, r) ⇒ (v | (1l << (r * COLS))))
+        (for (col ← 0 to MAX_COL_INDEX) yield {
+            mask << col
+        }).toArray
+    }
 
     /**
       * To get four men connected horizontally – on a board with 7 columns – it is strictly necessary that the
@@ -203,6 +217,6 @@ trait Board {
     /**
       * Creates a human-readable representation of all given masks.
       */
-    def masksToString(masks: Array[Mask]): String = ("" /: masks)(_ + maskToString(_)+"\n")
+    def masksToString(masks: Array[Mask]): String = ("" /: masks)(_ + maskToString(_)+"\n\n")
 }
 

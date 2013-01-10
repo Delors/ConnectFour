@@ -143,43 +143,78 @@ class ConnectFour(
           */
         def this() { this(0l /* all fields are empty */ , 0l) }
 
-        /**
-          * Returns the list of square ids where the next man can be placed.
-          */
-        def legalMoves(): Buffer[Int] = {
-            // In the following, a do-while loop is used to improve the performance. 
-            // Scala's for-loops (2.9.x) are (still) slow(er) and this is one of 
-            // the core methods used by the minimax algorithm.
-            var squares = new ArrayBuffer[Int](COLS)
-            var col = 0
-            // in each column find the lowest square that is empty
-            do {
-                var row = 0
-                var continue = true
-                do {
-                    val square: Int = squareId(row, col)
-                    if (!isOccupied(square)) {
-                        squares.+=(square)
-                        continue = false
-                    }
-                    else {
-                        row += 1
-                    }
-                } while (continue && row <= MAX_ROW_INDEX)
-                col += 1
-            } while (col <= MAX_COL_INDEX)
+        //        /**
+        //          * Returns the list of square ids where the next man can be placed.
+        //          */
+        //        @deprecated
+        //        def legalMoves(): Buffer[Int] = {
+        //            // In the following, a do-while loop is used to improve the performance. 
+        //            // Scala's for-loops (2.9.x) are (still) slow(er) and this is one of 
+        //            // the core methods used by the minimax algorithm.
+        //            var squares = new ArrayBuffer[Int](COLS)
+        //            var col = 0
+        //            // in each column find the lowest square that is empty
+        //            do {
+        //                var row = 0
+        //                var continue = true
+        //                do {
+        //                    val square: Int = squareId(row, col)
+        //                    if (!isOccupied(square)) {
+        //                        squares.+=(square)
+        //                        continue = false
+        //                    }
+        //                    else {
+        //                        row += 1
+        //                    }
+        //                } while (continue && row <= MAX_ROW_INDEX)
+        //                col += 1
+        //            } while (col <= MAX_COL_INDEX)
+        //
+        //            // start with the columns in the middle as the square weights of these columns are higher:    
+        //            if (squares.size > 5) {
+        //                val s0 = squares(0)
+        //                squares.update(0, squares(3))
+        //                squares.update(3, s0)
+        //
+        //                val s1 = squares(1)
+        //                squares.update(1, squares(2))
+        //                squares.update(2, s1)
+        //            }
+        //            squares
+        //        }
 
-            // start with the columns in the middle as the square weights of these columns are higher:    
-            if (squares.size > 5) {
-                val s0 = squares(0)
-                squares.update(0, squares(3))
-                squares.update(3, s0)
+        def nextMoves(): scala.collection.Iterator[Mask] = {
+            new Iterator[Mask] {
 
-                val s1 = squares(1)
-                squares.update(1, squares(2))
-                squares.update(2, s1)
+                private var col = (COLS / 2)-1
+                private var startCol = -1
+                private final val mask = 1l << UPPER_LEFT_SQUARE_INDEX
+
+                private def advance() {
+                    col = (col + 1) % COLS
+                    if (startCol == -1)
+                        startCol = col
+                    else if (col == startCol) { col = COLS; return }
+
+                    val currentMask = mask << col
+                    if ((occupiedInfo & currentMask) == currentMask) advance()
+                }
+
+                advance()
+
+                def hasNext(): Boolean = col < COLS
+                def next(): Mask = {
+                    val columnMask = columnMasks(col)
+                    var mask = occupiedInfo & columnMask
+                    if (mask == 0l)
+                        mask = 1l << col
+                    else
+                        mask = (mask ^ columnMask) & (mask << COLS)
+
+                    advance()
+                    mask
+                }
             }
-            squares
         }
 
         /**
@@ -231,29 +266,30 @@ class ConnectFour(
                 case _      ⇒ None
             }
 
-        /**
-          * Creates a new game state object by putting a man in the given square and updating the
-          * information which player has to make the next move.
-          *
-          * ==Prerequisites==
-          * The squares below the square have to be occupied and the specified square has to be empty.
-          * However, both is not checked.
-          *
-          * @param squareId The id of the square where the man is placed.
-          * @return The updated game state.
-          */
-        def makeMove(squareId: Int): Game = {
-            val squareMask = 1l << squareId
-            new Game(
-                occupiedInfo | squareMask /* put a man in the square */ ,
-                if (turnOfPlayer() == Player.white)
-                    // The BLACK player (ID = 1) is next. 
-                    playerInfo | (1l << 63)
-                else
-                    // We have to mask the most significant bit (the 64th bit).
-                    (playerInfo | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
-            )
-        }
+        //        /**
+        //          * Creates a new game state object by putting a man in the given square and updating the
+        //          * information which player has to make the next move.
+        //          *
+        //          * ==Prerequisites==
+        //          * The squares below the square have to be occupied and the specified square has to be empty.
+        //          * However, both is not checked.
+        //          *
+        //          * @param squareId The id of the square where the man is placed.
+        //          * @return The updated game state.
+        //          */
+        //        @deprecated
+        //        def makeMove(squareId: Int): Game = {
+        //            val squareMask = 1l << squareId
+        //            new Game(
+        //                occupiedInfo | squareMask /* put a man in the square */ ,
+        //                if (turnOfPlayer() == Player.white)
+        //                    // The BLACK player (ID = 1) is next. 
+        //                    playerInfo | (1l << 63)
+        //                else
+        //                    // We have to mask the most significant bit (the 64th bit).
+        //                    (playerInfo | squareMask) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
+        //            )
+        //        }
 
         /**
           * Creates a new game state object by putting a man in the given square and updating the
@@ -266,7 +302,7 @@ class ConnectFour(
           * @param square The mask that masks the respective square.
           * @return The updated game state.
           */
-        /*TODO use method*/ def makeMove(square: Mask): Game = {
+        def makeMove(square: Mask): Game = {
             new Game(
                 occupiedInfo | square /* put a man in the square */ ,
                 if (turnOfPlayer().isWhite)
@@ -339,15 +375,15 @@ class ConnectFour(
                         val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
                         if (squareWeight > bestSquareWeightOfNextMove)
                             bestSquareWeightOfNextMove = squareWeight
-                        row = ROWS // <=> break                        
+                        row = ROWS // => break                        
                     }
                     else {
                         if ((playerInfo & mask) == 0l /*Occupied by white player?*/ ) {
-                            productOfSquareWeightsWhite *= SQUARE_WEIGHTS(squareId(row, col)) / 2
+                            productOfSquareWeightsWhite += SQUARE_WEIGHTS(squareId(row, col)) // 2
                             whiteSquaresCount += 1
                         }
                         else {
-                            productOfSquareWeightsBlack *= SQUARE_WEIGHTS(squareId(row, col)) / 2
+                            productOfSquareWeightsBlack += SQUARE_WEIGHTS(squareId(row, col)) // 2
                             blackSquaresCount += 1
                         }
                     }
@@ -358,8 +394,8 @@ class ConnectFour(
             } while (col < COLS)
 
             (whiteSquaresCount - blackSquaresCount) match {
-                case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack * bestSquareWeightOfNextMove).toInt
-                case -1 ⇒ (productOfSquareWeightsWhite * bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
+                case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack + bestSquareWeightOfNextMove).toInt
+                case -1 ⇒ (productOfSquareWeightsWhite + bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
                 case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
             }
         }
@@ -408,14 +444,13 @@ class ConnectFour(
 
             // 3. performs a recursive call to this method to continue exploring the search tree
             var valueOfBestMove = Int.MinValue // we always maximize!
-            val legalMoves = this.legalMoves()
-            val legalMovesCount = legalMoves.size
+            val nextMoves = this.nextMoves()
             var l = 0
             var newAlpha = alpha
             do { // for each legal move...
-                val legalMove = legalMoves(l)
-                val newGame = makeMove(legalMove)
-                val newNodeLabel = if (GENERATE_DOT) { nodeLabel + column(legalMove)+"↓" } else ""
+                val nextMove: Mask = nextMoves.next
+                val newGame = makeMove(nextMove)
+                val newNodeLabel = if (GENERATE_DOT) { nodeLabel + column(nextMove)+"↓" } else ""
                 var value: Int = -newGame.negamax(depth - 1, -beta, -newAlpha, newNodeLabel)
                 if (GENERATE_DOT) println("\""+nodeLabel+"\" -> "+"\""+newNodeLabel+"\";")
                 if (GENERATE_DOT) println("\""+newNodeLabel+"\" [label=\"{alpha="+(-beta)+"|beta="+(-newAlpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
@@ -430,7 +465,7 @@ class ConnectFour(
                         newAlpha = value
                 }
                 l += 1
-            } while (l < legalMovesCount)
+            } while (nextMoves.hasNext)
             valueOfBestMove
         }
 
@@ -441,23 +476,22 @@ class ConnectFour(
           *     the ai looks ahead; a round consists of one move by each player. It should be at least 3 for
           *     a game that is not too easy.
           */
-        def proposeMove(aiStrength: Int): Int = {
+        def proposeMove(aiStrength: Int): Mask = {
             val maxDepth = aiStrength * 2
 
-            val legalMoves = this.legalMoves()
-            val legalMovesCount = legalMoves.size
-            var bestMove: Int = legalMoves(0)
+            val nextMoves = this.nextMoves()
+            var bestMove: Mask = -1
             var l = 0
             var alpha = -Int.MaxValue
             if (GENERATE_DOT) println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
             do { // for each legal move...
-                val move = legalMoves(l)
-                val newGame = makeMove(move)
-                val newNodeLabel = if (GENERATE_DOT) String.valueOf(column(move))+"↓" else ""
+                val nextMove: Mask = nextMoves.next()
+                val newGame = makeMove(nextMove)
+                val newNodeLabel = if (GENERATE_DOT) String.valueOf(column(nextMove))+"↓" else ""
                 var value: Int = -newGame.negamax(maxDepth - 1, -Int.MaxValue, -alpha, newNodeLabel) //* playerFactor
                 if (GENERATE_DOT) println("\"root\" -> "+"\""+newNodeLabel+"\";")
                 if (GENERATE_DOT) println("\""+newNodeLabel+"\" [shape=record,label=\"{alpha="+(-Int.MaxValue)+"|beta="+(-alpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
-                if (DEBUG) println("Move: "+(column(move))+" => "+{ value match { case `WON` ⇒ "will win"; case `LOST` ⇒ "will loose"; case v ⇒ String.valueOf(v)+" (better if larger than a previous move)" } })
+                if (DEBUG) println("Move: "+column(nextMove)+" => "+{ value match { case `WON` ⇒ "will win"; case `LOST` ⇒ "will loose"; case v ⇒ String.valueOf(v)+" (better if larger than a previous move)" } })
 
                 // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
                 // choose a move with a value that is equal to the value of a previously evaluated move, it
@@ -465,12 +499,12 @@ class ConnectFour(
                 // the search true was cut. 
                 // Therefore, it is not directly possible to evaluate all equally good moves and we have to
                 // use ">" here instead of ">=".
-                if (value > alpha) {
-                    bestMove = move
+                if (value > alpha || bestMove == -1) {
+                    bestMove = nextMove
                     alpha = value
                 }
                 l += 1
-            } while (l < legalMovesCount)
+            } while (nextMoves.hasNext)
             if (GENERATE_DOT) println("\"root\" [label="+alpha+"];\n}")
 
             if (alpha == -Int.MaxValue && aiStrength > 2)

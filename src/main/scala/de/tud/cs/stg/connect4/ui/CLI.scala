@@ -69,7 +69,7 @@ object CLI extends scala.App {
                     }
                     case c if c >= '0' && c < ('0' + connectFour.COLS) ⇒ {
                         game.lowestFreeSquareInColumn(c - '0') match {
-                            case Some(squareId) ⇒ return aiMove(game.makeMove(squareId), aiStrength: Int)
+                            case Some(squareId) ⇒ return aiMove(game.makeMove(1l << squareId), aiStrength: Int)
                             case _              ⇒ println("The column has no empty square.")
                         }
                     }
