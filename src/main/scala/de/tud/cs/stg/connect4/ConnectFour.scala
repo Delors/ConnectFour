@@ -134,13 +134,13 @@ class ConnectFour(
       *     occupies a square and also encodes the information which player has to make the next move.
       */
     case class Game private (
-            private final val occupiedInfo: Long,
+            final val occupiedInfo: OccupiedInfo,
             private final val playerInfo: Long) {
 
         /**
           * Creates a new empty board and sets the information that it is the first player(ID = 0; White)'s turn.
           */
-        def this() { this(0l /* all fields are empty */ , 0l) }
+        def this() { this(OccupiedInfo.create(), 0l) }
 
         /**
           * Iterator over the masks that select the squares where the current player is allowed to put its
@@ -160,7 +160,7 @@ class ConnectFour(
                     else if (col == startCol) { col = COLS; return }
 
                     val currentMask = mask << col
-                    if ((occupiedInfo & currentMask) == currentMask) advance()
+                    if (occupiedInfo.areOccupied(currentMask)) advance()
                 }
 
                 advance()
@@ -168,12 +168,13 @@ class ConnectFour(
                 def hasNext(): Boolean = col < COLS
                 def next(): Mask = {
                     val columnMask = columnMasks(col)
-                    var mask = occupiedInfo & columnMask
-                    if (mask == 0l)
-                        mask = 1l << col
-                    else
-                        mask = (mask ^ columnMask) & (mask << COLS)
-
+                    var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
+                    var mask = {
+                        if (filteredOccupiedInfo.allSquaresEmpty)
+                            1l << col
+                        else
+                            (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << COLS)
+                    }
                     advance()
                     mask
                 }
@@ -195,17 +196,12 @@ class ConnectFour(
           * @return The id of the lowest square in the given column that is free.
           */
         def lowestFreeSquareInColumn(column: Int): Option[Int] =
-            (column to SQUARES by COLS) collectFirst ({ case squareId if !isOccupied(squareId) ⇒ squareId })
-
-        /**
-          * Tests if the square with the given id is occupied.
-          */
-        def isOccupied(squareId: Int): Boolean = (occupiedInfo & (1l << squareId)) != 0l
+            (column to SQUARES by COLS) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
 
         /**
           * True if all squares are occupied.
           */
-        def allSquaresOccupied(): Boolean = (occupiedInfo & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK
+        def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK)
 
         /**
           * Returns the player that occupies the given square. The result is only defined iff the
@@ -242,7 +238,7 @@ class ConnectFour(
           */
         def makeMove(square: Mask): Game = {
             new Game(
-                occupiedInfo | square /* put a man in the square */ ,
+                occupiedInfo.update(square),
                 if (turnOfPlayer().isWhite)
                     // The BLACK player (ID = 1) is next. 
                     playerInfo | (1l << 63)
@@ -266,14 +262,14 @@ class ConnectFour(
           */
         def determineState(): State = determineState(occupiedInfo, playerInfo)
 
-        private def determineState(occupiedInfo: Long, playerInfo: Long): State = {
+        private def determineState(occupiedInfo: OccupiedInfo, playerInfo: Long): State = {
             // 1. check if we can find a line of four connected men
             val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
             val allMasksCount = allMasks.size
             var m = 0
             do {
                 val mask = allMasks(m)
-                if ((occupiedInfo & mask) == mask) {
+                if (occupiedInfo.areOccupied(mask)) {
                     (playerInfo & mask) match {
                         case `mask` ⇒ return State(mask)
                         case 0l     ⇒ return State(mask)
@@ -284,7 +280,7 @@ class ConnectFour(
             } while (m < allMasksCount)
 
             // 2. check if the game is finished or not yet decided 
-            if ((occupiedInfo & TOP_ROW_BOARD_MASK) == TOP_ROW_BOARD_MASK /*Are all squares occupied?*/ )
+            if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
                 State.drawn
             else
                 State.notFinished
@@ -309,19 +305,20 @@ class ConnectFour(
                 var mask = 1l << col
                 var row = 0
                 do {
-                    if ((occupiedInfo & mask) == 0l /*Is not occupied?*/ ) {
+                    if (occupiedInfo.areEmpty(mask)) {
                         val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
                         if (squareWeight > bestSquareWeightOfNextMove)
                             bestSquareWeightOfNextMove = squareWeight
                         row = ROWS // => break                        
                     }
                     else {
+                        val sid = squareId(row, col)
                         if ((playerInfo & mask) == 0l /*Occupied by white player?*/ ) {
-                            productOfSquareWeightsWhite += SQUARE_WEIGHTS(squareId(row, col)) // 2
+                            productOfSquareWeightsWhite += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
                             whiteSquaresCount += 1
                         }
                         else {
-                            productOfSquareWeightsBlack += SQUARE_WEIGHTS(squareId(row, col)) // 2
+                            productOfSquareWeightsBlack += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
                             blackSquaresCount += 1
                         }
                     }
@@ -387,8 +384,8 @@ class ConnectFour(
             var newAlpha = alpha
             do { // for each legal move...
                 val nextMove: Mask = nextMoves.next
-                val newGame = makeMove(nextMove)
-                val newNodeLabel = if (GENERATE_DOT) { nodeLabel + column(nextMove)+"↓" } else ""
+                val newGame: Game = makeMove(nextMove)
+                val newNodeLabel: String = if (GENERATE_DOT) { nodeLabel + column(nextMove)+"↓" } else ""
                 var value: Int = -newGame.negamax(depth - 1, -beta, -newAlpha, newNodeLabel)
                 if (GENERATE_DOT) println("\""+nodeLabel+"\" -> "+"\""+newNodeLabel+"\";")
                 if (GENERATE_DOT) println("\""+newNodeLabel+"\" [label=\"{alpha="+(-beta)+"|beta="+(-newAlpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
@@ -476,7 +473,7 @@ class ConnectFour(
                 string += r+"  " // add the row index
                 for (c ← 0 to MAX_COL_INDEX) {
                     val sid = squareId(r, c)
-                    if (isOccupied(sid)) string += player(sid).symbol+" " else string += "  "
+                    if (occupiedInfo.isOccupied(sid)) string += player(sid).symbol+" " else string += "  "
                 }
                 string += "\n"
             }
@@ -493,3 +490,25 @@ class ConnectFour(
 
     }
 }
+
+class OccupiedInfo(val board: Long) extends AnyVal {
+
+    def allSquaresEmpty(): Boolean = board == 0l
+
+    def isEmpty(squareId: Int): Boolean = (board & (1l << squareId)) == 0l
+
+    def isOccupied(squareId: Int): Boolean = (board & (1l << squareId)) != 0l
+
+    def areEmpty(squareMask: Mask): Boolean = (board & squareMask) == 0l
+
+    def areOccupied(squareMask: Mask): Boolean = (board & squareMask) == squareMask
+
+    def update(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board | squareMask)
+
+    def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask)
+}
+object OccupiedInfo {
+    def create(): OccupiedInfo = new OccupiedInfo(0l)
+}
+
+
