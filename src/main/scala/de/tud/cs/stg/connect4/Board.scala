@@ -35,42 +35,34 @@ package de.tud.cs.stg.connect4
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Information of a specific board. The implementation supports boards that have at least 4 rows and 4
+  * Information about a specific board. The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 7 rows and 7 columns.
+  *
+  * @param ROWS The board's number of rows (4 <= ROWS <= 7).
+  * @param COLS The board's number of columns (4 <= COLS <= 7).
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-trait Board {
+class Board(val ROWS: Int, val COLS: Int = 7) {
 
-    /**
-      * Recommendation w.r.t. the processing time that is required to evaluate the search tree up to a specific
-      * depth.
-      */
-    val RECOMMENDED_AI_STRENGTH: Int
-
-    /**
-      * The board's number of columns (4 <= COLS <= 7).
-      */
-    val COLS: Int
-
-    /**
-      * The board's number of rows (4 <= ROWS <= 7).
-      */
-    val ROWS: Int
+    require(ROWS >= 4 && ROWS <= 7)
+    require(COLS >= 4 && COLS <= 7)
 
     /**
       * The number of squares.
       */
     final val SQUARES = COLS * ROWS
 
-    protected[connect4] final val MAX_COL_INDEX = COLS - 1
-    protected[connect4] final val MAX_ROW_INDEX = ROWS - 1
-    protected[connect4] final val MAX_SQUARE_INDEX = SQUARES - 1
+    final val MAX_COL_INDEX = COLS - 1
+
+    final val MAX_ROW_INDEX = ROWS - 1
+
+    final val MAX_SQUARE_INDEX = SQUARES - 1
 
     /**
       * The id of the square in the upper left-hand corner.
       */
-    protected[connect4] final val UPPER_LEFT_SQUARE_INDEX = (ROWS - 1) * COLS
+    final val UPPER_LEFT_SQUARE_INDEX = (ROWS - 1) * COLS
 
     /**
       * Returns the id of the square that has the given row and column indexes.
@@ -94,6 +86,9 @@ trait Board {
       */
     final def column(squareId: Int): Int = squareId % COLS
 
+    /**
+      * Returns the id of the column of the square(s) identified by the mask.
+      */
     final def column(mask: Mask): Int = {
         for (col ← 0 to MAX_COL_INDEX) {
             if ((mask & columnMasks(col)) == mask) return col
@@ -106,56 +101,107 @@ trait Board {
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    val TOP_ROW_BOARD_MASK: Mask
+    final val TOP_ROW_BOARD_MASK: Long =
+        (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
 
-    final lazy val columnMasks: Array[Mask] = {
+    final val columnMasks: Array[Mask] = {
         val mask = (1l /: (1 to ROWS))((v, r) ⇒ (v | (1l << (r * COLS))))
         (for (col ← 0 to MAX_COL_INDEX) yield {
             mask << col
         }).toArray
     }
 
-    /**
-      * To get four men connected horizontally – on a board with 7 columns – it is strictly necessary that the
-      * column exactly in the middle is occupied.
-      */
-    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Mask]
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Long]] = {
+        var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
+        (for (r ← 0 to MAX_ROW_INDEX) yield {
+            val rowMasks = (for (c ← 0 to MAX_COL_INDEX - 3) yield {
+                val currentMask = mask
+                mask = mask << 1
+                currentMask
+            }).toArray
+            mask = mask << 3
+            rowMasks
+        }).toArray
+    }
 
-    def MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Mask]]
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Long]] = {
+        val initialMask = 1l | (1l << COLS) | (1l << 2 * COLS) | (1l << 3 * COLS)
+        (for (c ← 0 to MAX_COL_INDEX) yield {
+            var mask = initialMask << c
+            (for (r ← 0 to MAX_ROW_INDEX - 3) yield {
+                val currentMask = mask
+                mask = mask << COLS
+                currentMask
+            }).toArray
+        }).toArray
+    }
 
-    /**
-      * To get four men connected vertically, it is strictly necessary that – given a specific column –
-      * the fourth row (id == 3) is occupied.
-      *
-      * The array contains the corresponding board masks for each column.
-      */
-    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Mask]
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Long]] = {
 
-    def MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Mask]]
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * (COLS + 1) }
 
-    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Mask]
+        val startIndexes = new Array[Int]((ROWS - 4) + (COLS - 3))
+        var i = 0;
+        for (l ← (COLS to ((ROWS - 4) * COLS) by COLS).reverse) {
+            startIndexes(i) = l
+            i += 1
+        }
+        for (b ← 0 to COLS - 4) {
+            startIndexes(i) = b
+            i += 1
+        }
 
-    def MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Mask]]
+        (for (startIndex ← startIndexes) yield {
+            var mask = (1l << startIndex | 1l << (startIndex + (COLS + 1)) | 1l << (startIndex + 2 * (COLS + 1)) | 1l << (startIndex + 3 * (COLS + 1)))
+            var currentIndex = startIndex
+            var bitFields = List[Long]()
+            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+                && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
+                bitFields = mask :: bitFields
+                currentIndex += (COLS + 1)
+                mask = mask << (COLS + 1)
+            }
+            bitFields.reverse.toArray
+        }).toArray
+    }
 
-    def QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Mask]
+    final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Long]] = {
+        
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * (COLS - 1) }
 
-    def MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Mask]]
+        val startIndexes = new Array[Int]((ROWS - 4) + (COLS - 3))
+        var i = 0;
+        for (b ← 3 to COLS - 1) {
+            startIndexes(i) = b
+            i += 1
+        }
+        for (l ← (COLS * 2 - 1 to ((ROWS - 3) * COLS) - 1 by COLS)) {
+            startIndexes(i) = l
+            i += 1
+        }
 
-    final lazy val ALL_QUICK_CHECK_MASKS: Array[Array[Mask]] = Array(
-        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
-        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
-        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
-        QUICK_CHECK_MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
-    )
+        (for (startIndex ← startIndexes) yield {
+            var mask = (1l << startIndex | 1l << (startIndex + (COLS - 1)) | 1l << (startIndex + 2 * (COLS - 1)) | 1l << (startIndex + 3 * (COLS - 1)))
+            var currentIndex = startIndex
+            var masks = List[Long]()
+            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+                && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
+                masks = mask :: masks
+                currentIndex += (COLS - 1)
+                mask = mask << (COLS - 1)
+            }
+            masks.reverse.toArray
+        }).toArray
+    }
 
-    final lazy val ALL_MASKS_FOR_CONNECT4_CHECK: Array[Array[Array[Mask]]] = Array(
+    final val ALL_MASKS_FOR_CONNECT4_CHECK: Array[Array[Array[Mask]]] = Array(
         MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
         MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
         MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
         MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
     )
 
-    final lazy val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = {
+    final val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = {
         val arrayBuffer = new ArrayBuffer[Long]()
         arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_ROWS.flatten)
         arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_COLS.flatten)
@@ -170,16 +216,31 @@ trait Board {
       * in the first column the third and fourth squares are essential. A player who does not get
       * hold of these two squares will never be able to get a line of four connected men in the first column.
       */
-    final lazy val ALL_ESSENTIAL_SQUARES_MASKS: Array[Array[Mask]] =
+    final val ALL_ESSENTIAL_SQUARES_MASKS: Array[Array[Mask]] =
         ALL_MASKS_FOR_CONNECT4_CHECK.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
             (Long.MaxValue /: perLineMasks)(_ & _)
         )))
+
+    final val ESSENTIAL_SQUARE_WEIGHTS: Array[Int] = {
+        val squareWeights = new Array[Int](SQUARES)
+        for (squareId ← 0 to SQUARES-1) {
+            var count = 0
+            for (
+                masks ← ALL_ESSENTIAL_SQUARES_MASKS;
+                mask ← masks if (mask & (1l << squareId)) != 0l
+            ) {
+                count += 1
+            }
+            squareWeights(squareId) = count
+        }
+        squareWeights
+    }
 
     /**
       * The weight of each square is equal to the number of times the square appears in a line of
       * four connected men.
       *
-      * These weights can, e.g., be used by the ai.
+      * These weights can, e.g., be used by the ai to score the current game state.
       *
       * For example, in case of a board with 6 rows and 7 columns the weights are:
       *  3.. 4.. 5.. 7.. 5.. 4.. 3
@@ -189,13 +250,29 @@ trait Board {
       *  4.. 6.. 8..10.. 8.. 6.. 4
       *  3.. 4.. 5.. 7.. 5.. 4.. 3
       */
-    val SQUARE_WEIGHTS: Array[Int]
+    final val SQUARE_WEIGHTS: Array[Int] = {
+        val squareWeights = new Array[Int](SQUARES)
 
-    val MAX_SQUARE_WEIGHT: Int
+        def evalBoardMask(boardMask: Long) {
+            (0 until SQUARES).foreach((index) ⇒ {
+                if ((boardMask & (1l << index)) != 0l) squareWeights(index) += 1
+            })
+        }
 
-    val MIN_SQUARE_WEIGHT: Int
+        def evalBoardMasks(boardMasks: Array[Array[Long]]) {
+            boardMasks.foreach(_.foreach(evalBoardMask(_)))
+        }
 
-    final val DIFFERENT_SQUARE_WEIGHTS: Int = MAX_SQUARE_WEIGHT - MIN_SQUARE_WEIGHT + 1
+        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_COLS)
+        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_ROWS)
+        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS)
+        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS)
+        squareWeights
+    }
+
+    final val MAX_SQUARE_WEIGHT = SQUARE_WEIGHTS.max
+
+    final val MIN_SQUARE_WEIGHT = SQUARE_WEIGHTS.min
 
     /**
       * Creates a human-readable representation of the given mask.
@@ -203,14 +280,11 @@ trait Board {
       * Masks are used to analyze a board's state; i.e, which fields are occupied by which player.
       */
     def maskToString(mask: Mask): String = {
-
-        /**
-          * Tests if the square with given id is occupied on the given board.
-          */
-        def isOccupied(board: Long, squareId: Int) = (board & (1l << squareId)) != 0l
+        // Tests if the square with given id is set in the given mask.
+        def isSet(mask: Long, squareId: Int) = (mask & (1l << squareId)) != 0l
 
         (for (r ← (0 to MAX_ROW_INDEX).reverse) yield {
-            (0 to MAX_COL_INDEX).map((c) ⇒ if (isOccupied(mask, squareId(r, c))) "1 " else "0 ").mkString
+            (0 to MAX_COL_INDEX).map((c) ⇒ if (isSet(mask, squareId(r, c))) "1 " else "0 ").mkString
         }).mkString("\n")
     }
 
@@ -219,4 +293,11 @@ trait Board {
       */
     def masksToString(masks: Array[Mask]): String = ("" /: masks)(_ + maskToString(_)+"\n\n")
 }
+
+/**
+ * The standard connect four board with six rows and seven columns.
+ * 
+ * @author Michael Eichberg
+ */
+object Board6x7 extends Board(6, 7)
 
