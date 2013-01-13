@@ -93,7 +93,7 @@ class Board(val ROWS: Int, val COLS: Int = 7) {
         for (col ← 0 to MAX_COL_INDEX) {
             if ((mask & columnMasks(col)) == mask) return col
         }
-        sys.error("the mask:\n"+maskToString(mask)+"\ndoes not identify a unique column")
+        throw new IllegalArgumentException("the mask:\n"+maskToString(mask)+"\ndoes not identify a unique column")
     }
 
     /**
@@ -166,7 +166,7 @@ class Board(val ROWS: Int, val COLS: Int = 7) {
     }
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Long]] = {
-        
+
         def idOfLastSquare(squareID: Int) = { squareID + 3 * (COLS - 1) }
 
         val startIndexes = new Array[Int]((ROWS - 4) + (COLS - 3))
@@ -223,7 +223,7 @@ class Board(val ROWS: Int, val COLS: Int = 7) {
 
     final val ESSENTIAL_SQUARE_WEIGHTS: Array[Int] = {
         val squareWeights = new Array[Int](SQUARES)
-        for (squareId ← 0 to SQUARES-1) {
+        for (squareId ← 0 to SQUARES - 1) {
             var count = 0
             for (
                 masks ← ALL_ESSENTIAL_SQUARES_MASKS;
@@ -295,9 +295,9 @@ class Board(val ROWS: Int, val COLS: Int = 7) {
 }
 
 /**
- * The standard connect four board with six rows and seven columns.
- * 
- * @author Michael Eichberg
- */
+  * The standard connect four board with six rows and seven columns.
+  *
+  * @author Michael Eichberg
+  */
 object Board6x7 extends Board(6, 7)
 

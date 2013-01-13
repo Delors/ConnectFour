@@ -108,22 +108,22 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("the white player always starts") {
-            b0.turnOfPlayer() should be(Player.white)
+            b0.playerInfo.turnOf() should be(Player.White)
         }
 
         it("when a player drops a man in a specific column it is placed in the lowest free square in the column which then should belong to the player") {
-            b1.player(4) should be(Player.white)
-            b2.player(3) should be(Player.black)
-            b3.player(2) should be(Player.white)
+            b1.playerInfo.belongsTo(4) should be(Player.White)
+            b2.playerInfo.belongsTo(3) should be(Player.Black)
+            b3.playerInfo.belongsTo(2) should be(Player.White)
         }
 
         it("on an empty board the set of legal moves are those that put a man in a square in the lowest row") {
-            b0.nextMoves.toSet should be(Set(1l, 1l << 1, 1l << 2, 1l << 3, 1l << 4, 1l << 5, 1 << 6))
+            b0.nextMoves.toSet should be(Set(1l, 1l << 1, 1l << 2, 1l << 3, 1l << 4, 1l << 5, 1l << 6))
         }
-        //
-        //        it("legal moves are always those that put a men above an occupied square as long as a column is not full") {
-        //            b9.legalMoves.toSet should be(Set(7 /*col 1*/ , 1 /*col 2*/ , 10 /*col 4*/ , 11 /*col 5*/ , 5 /*col 6*/ , 6 /*col 7*/ ))
-        //        }
+
+        it("legal moves are always those that put a man above an occupied square as long as a column is not full") {
+            b9.nextMoves.toSet should be(Set(1l << 7 /*col 1*/ , 1l << 1 /*col 2*/ , 1l << 10 /*col 4*/ , 1l << 11 /*col 5*/ , 1l << 5 /*col 6*/ , 1l << 6 /*col 7*/ ))
+        }
 
         it("the board is not completely occupied if at least one square is empty") {
             b0.allSquaresOccupied should be(false)
@@ -146,13 +146,13 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         it("a player wins the game if the player has four connected men in a column") {
             val result = bWHITEWins.determineState
             result.getMask should be((1l << 4 | 1l << 11 | 1l << 18 | 1l << 25))
-            bWHITEWins.player(result.getMask) should be(Some(Player.white))
+            bWHITEWins.playerInfo.belongTo(result.getMask) should be(Some(Player.White))
         }
 
         it("a player wins the game if the player has four connected men in a row") {
             val result = bBLACKWins.determineState
             result.getMask should be((1l << 7 | 1l << 8 | 1l << 9 | 1l << 10))
-            bBLACKWins.player(result.getMask) should be(Some(Player.black))
+            bBLACKWins.playerInfo.belongTo(result.getMask) should be(Some(Player.Black))
         }
 
         it("if the black player has three men in a line which can be completed to a line of four connected men the ai should put a man in the square that prevents the black player from (immediately) winning") {

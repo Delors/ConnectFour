@@ -76,15 +76,15 @@ object Player {
       *
       * @param palyerId The id of the player. The value has to be either `0l` (white player) or `1l` (black player).
       */
-    def apply(playerId: Long): Player = if (playerId == 0l) white else black
+    def apply(playerId: Long): Player = if (playerId == 0l) White else Black
 
     /**
       * The white player; the player that always makes the first move.
       */
-    final val white: Player = new Player(0)
+    final val White: Player = new Player(0)
 
     /**
       * The black player.
       */
-    final val black: Player = new Player(1)
+    final val Black: Player = new Player(1)
 }

@@ -41,6 +41,8 @@ package de.tud.cs.stg.connect4
   * with the second state (`drawn`) is 0l. The third case uses values in the range: [15...2^(7x7)] to (a)
   * identify that some player has won and (b) to simultaneously specify the mask that can be used to identify
   * the line of four connect men on the board.
+  *
+  * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 class State(val state: Long) extends AnyVal {
 
@@ -53,13 +55,17 @@ class State(val state: Long) extends AnyVal {
     def hasWinner: Boolean = state > 0l
 
     /**
-      * Returns the mask that identifies the line of four of the winning player.
+      * Returns the mask that identifies the line of four connected men of the winning player.
       *
       * The return value is only defined iff this game has a winner.
       */
     def getMask: Mask = state
 }
-
+/**
+  * Utility methods related to creating state objects.
+  *
+  * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
+  */
 object State {
 
     /**

@@ -124,7 +124,7 @@ object CLI extends scala.App {
                     case (_, State.drawn)       ⇒ println("This game is drawn.")
                     case (game, state) ⇒ {
                         val mask = state.getMask
-                        val Some(player) = game.player(mask)
+                        val Some(player) = game.playerInfo.belongTo(mask)
                         println(player+" has won!\n"+connectFour.maskToString(mask))
                     }
                 }
@@ -133,12 +133,18 @@ object CLI extends scala.App {
     }
 
     { // main
-        print("Output the search tree (g) or debug info (d)(Default: None)?"); val c = in.read(); println
+        print("Output the search tree (g) or debug info (d)(Default: None)?"); val o = in.read(); println
+        print("Number or rows [4..7](Default: 6)?"); val r = in.read(); println
+        print("Number or columns [4..7](Default: 7)?"); val c = in.read(); println
+        val rows: Int = if (r >= '4' && r <= '7') r - '0' else 6;
+        val cols: Int = if (c >= '4' && c <= '7') c - '0' else 7
+        val board = new Board(rows, cols)
+
         val setup = new Setup(
-            c match {
-                case 'g' ⇒ new ConnectFour(Board6x7, false, true)
-                case 'd' ⇒ new ConnectFour(Board6x7, true, false)
-                case _   ⇒ new ConnectFour(Board6x7, false, false)
+            o match {
+                case 'g' ⇒ new ConnectFour(board, false, true)
+                case 'd' ⇒ new ConnectFour(board, true, false)
+                case _   ⇒ new ConnectFour(board, false, false)
             }
         )
 

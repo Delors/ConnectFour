@@ -135,12 +135,12 @@ class ConnectFour(
       */
     case class Game private (
             final val occupiedInfo: OccupiedInfo,
-            private final val playerInfo: Long) {
+            final val playerInfo: PlayerInfo) {
 
         /**
           * Creates a new empty board and sets the information that it is the first player(ID = 0; White)'s turn.
           */
-        def this() { this(OccupiedInfo.create(), 0l) }
+        def this() { this(OccupiedInfo.create(), PlayerInfo.create()) }
 
         /**
           * Iterator over the masks that select the squares where the current player is allowed to put its
@@ -182,11 +182,6 @@ class ConnectFour(
         }
 
         /**
-          * Returns the player that has to make the next move.
-          */
-        def turnOfPlayer(): Player = Player(playerInfo >>> 63)
-
-        /**
           * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None` otherwise.
           *
           * ==Note==
@@ -204,28 +199,6 @@ class ConnectFour(
         def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK)
 
         /**
-          * Returns the player that occupies the given square. The result is only defined iff the
-          * square is occupied.
-          */
-        def player(squareId: Int): Player =
-            if ((playerInfo & (1l << squareId)) == 0l)
-                Player.white
-            else
-                Player.black
-
-        /**
-          * Returns the player that occupies the squares identified by the given mask.
-          * If not all squares are occupied by the same player `None` is returned.
-          * The result is only defined iff all identified squares are occupied.
-          */
-        def player(mask: Mask): Option[Player] =
-            playerInfo & mask match {
-                case `mask` ⇒ Some(Player.black)
-                case 0l     ⇒ Some(Player.white)
-                case _      ⇒ None
-            }
-
-        /**
           * Creates a new game state object by putting a man in the given square and updating the
           * information which player has to make the next move.
           *
@@ -236,17 +209,8 @@ class ConnectFour(
           * @param square The mask that masks the respective square.
           * @return The updated game state.
           */
-        def makeMove(square: Mask): Game = {
-            new Game(
-                occupiedInfo.update(square),
-                if (turnOfPlayer().isWhite)
-                    // The BLACK player (ID = 1) is next. 
-                    playerInfo | (1l << 63)
-                else
-                    // We have to mask the most significant bit (the 64th bit).
-                    (playerInfo | square) & java.lang.Long.MAX_VALUE /* <=> 01111...1111*/
-            )
-        }
+        def makeMove(squareMask: Mask): Game =
+            new Game(occupiedInfo.update(squareMask), playerInfo.update(squareMask))
 
         /**
           * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
@@ -262,20 +226,14 @@ class ConnectFour(
           */
         def determineState(): State = determineState(occupiedInfo, playerInfo)
 
-        private def determineState(occupiedInfo: OccupiedInfo, playerInfo: Long): State = {
+        private def determineState(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
             // 1. check if we can find a line of four connected men
             val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
             val allMasksCount = allMasks.size
             var m = 0
             do {
                 val mask = allMasks(m)
-                if (occupiedInfo.areOccupied(mask)) {
-                    (playerInfo & mask) match {
-                        case `mask` ⇒ return State(mask)
-                        case 0l     ⇒ return State(mask)
-                        case _      ⇒ /*continue*/
-                    }
-                }
+                if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
                 m += 1
             } while (m < allMasksCount)
 
@@ -313,7 +271,7 @@ class ConnectFour(
                     }
                     else {
                         val sid = squareId(row, col)
-                        if ((playerInfo & mask) == 0l /*Occupied by white player?*/ ) {
+                        if (playerInfo.areWhite(mask)) {
                             productOfSquareWeightsWhite += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
                             whiteSquaresCount += 1
                         }
@@ -371,7 +329,7 @@ class ConnectFour(
 
             // 2. check if we have to abort exploring the search tree and have to assess the game state
             if (depth <= 0) {
-                if (turnOfPlayer().isWhite)
+                if (playerInfo.isWhitesTurn())
                     return score()
                 else
                     return -score()
@@ -473,7 +431,10 @@ class ConnectFour(
                 string += r+"  " // add the row index
                 for (c ← 0 to MAX_COL_INDEX) {
                     val sid = squareId(r, c)
-                    if (occupiedInfo.isOccupied(sid)) string += player(sid).symbol+" " else string += "  "
+                    if (occupiedInfo.isOccupied(sid))
+                        string += playerInfo.belongsTo(sid).symbol+" "
+                    else
+                        string += "  "
                 }
                 string += "\n"
             }
@@ -486,7 +447,7 @@ class ConnectFour(
         /**
           * Returns a human readable representation of the current game state.
           */
-        override def toString() = "Next Player: "+turnOfPlayer()+"\nBoard:\n"+boardToString
+        override def toString() = "Next Player: "+playerInfo.turnOf()+"\nBoard:\n"+boardToString
 
     }
 }
@@ -508,7 +469,63 @@ class OccupiedInfo(val board: Long) extends AnyVal {
     def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask)
 }
 object OccupiedInfo {
+    /**
+      * Creates a new `OccupiedInfo` object where all squares are empty.
+      */
     def create(): OccupiedInfo = new OccupiedInfo(0l)
 }
 
+class PlayerInfo(val playerInfo: Long) extends AnyVal {
 
+    def isWhite(squareId: Int): Boolean = (playerInfo & (1l << squareId)) == 0l
+
+    def isBlack(squareId: Int): Boolean = (playerInfo & (1l << squareId)) != 0l
+
+    /**
+      * Returns the player that occupies the given square. The result is only defined iff the
+      * square is occupied.
+      */
+    def belongsTo(squareId: Int): Player = Player((playerInfo >>> squareId) & 1l)
+
+    def areWhite(squareMask: Mask): Boolean = (playerInfo & squareMask) == 0l
+
+    def areBlack(squareMask: Mask): Boolean = (playerInfo & squareMask) == squareMask
+
+    /**
+      * Returns the player that occupies the squares identified by the given mask.
+      * If not all squares are occupied by the same player `None` is returned.
+      * The result is only defined iff all identified squares are occupied.
+      */
+    def belongTo(squareMask: Mask): Option[Player] =
+        playerInfo & squareMask match {
+            case `squareMask` ⇒ Some(Player.Black)
+            case 0l           ⇒ Some(Player.White)
+            case _            ⇒ None
+        }
+
+    def belongToSamePlayer(squareMask: Mask): Boolean = {
+        val filteredPlayerInfo = playerInfo & squareMask
+        return filteredPlayerInfo == 0l || filteredPlayerInfo == squareMask
+    }
+
+    def isWhitesTurn(): Boolean = (playerInfo >>> 63) == 0l
+
+    def isBlacksTurn(): Boolean = (playerInfo >>> 63) == 1l
+
+    def turnOf(): Player = Player(playerInfo >>> 63)
+
+    def update(squareMask: Mask): PlayerInfo =
+        if ((playerInfo >>> 63) == 0l)
+            new PlayerInfo(playerInfo | 1l << 63)
+        else
+            new PlayerInfo((playerInfo | squareMask) & Long.MaxValue)
+
+}
+object PlayerInfo {
+
+    /**
+      * Creates a new player info object. The current player; i.e., the player that has to make the next
+      * move is set to the white player.
+      */
+    def create(): PlayerInfo = new PlayerInfo(0)
+}
