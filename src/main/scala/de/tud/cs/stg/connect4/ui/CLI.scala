@@ -134,10 +134,10 @@ object CLI extends scala.App {
 
     { // main
         print("Output the search tree (g) or debug info (d)(Default: None)?"); val o = in.read(); println
-        print("Number or rows [4..7](Default: 6)?"); val r = in.read(); println
-        print("Number or columns [4..7](Default: 7)?"); val c = in.read(); println
-        val rows: Int = if (r >= '4' && r <= '7') r - '0' else 6;
-        val cols: Int = if (c >= '4' && c <= '7') c - '0' else 7
+        print("Number of rows [4..8](Default: 6; rows*columns <= 56)?"); val r = in.read(); println
+        print("Number of columns [4..8](Default: 7; rows*columns <= 56)?"); val c = in.read(); println
+        val rows: Int = if (r >= '4' && r <= '8') r - '0' else 6
+        val cols: Int = if (c >= '4' && c <= '8') c - '0' else 7
         val board = new Board(rows, cols)
 
         val setup = new Setup(
