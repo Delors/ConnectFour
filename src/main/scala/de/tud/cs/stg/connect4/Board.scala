@@ -43,27 +43,27 @@ import scala.collection.mutable.ArrayBuffer
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class Board(val ROWS: Int, val COLS: Int) {
+class Board(final val rows: Int, final val cols: Int) {
 
-    require(ROWS >= 4 && ROWS <= 8)
-    require(COLS >= 4 && COLS <= 8)
-    require(COLS * ROWS <= 56)
+    require(rows >= 4 && rows <= 8)
+    require(cols >= 4 && cols <= 8)
+    require(cols * rows <= 56)
 
     /**
       * The number of squares.
       */
-    final val SQUARES = COLS * ROWS
+    final val SQUARES = cols * rows
 
-    final val MAX_COL_INDEX = COLS - 1
+    final val MAX_COL_INDEX = cols - 1
 
-    final val MAX_ROW_INDEX = ROWS - 1
+    final val MAX_ROW_INDEX = rows - 1
 
     final val MAX_SQUARE_INDEX = SQUARES - 1
 
     /**
       * The id of the square in the upper left-hand corner.
       */
-    final val UPPER_LEFT_SQUARE_INDEX = (ROWS - 1) * COLS
+    final val UPPER_LEFT_SQUARE_INDEX = (rows - 1) * cols
 
     /**
       * Masks the squares in the top-level row of the board.
@@ -76,7 +76,7 @@ class Board(val ROWS: Int, val COLS: Int) {
       * Array of all masks that mask all squares in a column.
       */
     final val columnMasks: Array[Mask] = {
-        val mask = (1l /: (1 to ROWS))((v, r) ⇒ (v | (1l << (r * COLS))))
+        val mask = (1l /: (1 to rows))((v, r) ⇒ (v | (1l << (r * cols))))
         (for (col ← 0 to MAX_COL_INDEX) yield {
             mask << col
         }).toArray
@@ -96,12 +96,12 @@ class Board(val ROWS: Int, val COLS: Int) {
     }
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Long]] = {
-        val initialMask = 1l | (1l << COLS) | (1l << 2 * COLS) | (1l << 3 * COLS)
+        val initialMask = 1l | (1l << cols) | (1l << 2 * cols) | (1l << 3 * cols)
         (for (c ← 0 to MAX_COL_INDEX) yield {
             var mask = initialMask << c
             (for (r ← 0 to MAX_ROW_INDEX - 3) yield {
                 val currentMask = mask
-                mask = mask << COLS
+                mask = mask << cols
                 currentMask
             }).toArray
         }).toArray
@@ -109,28 +109,28 @@ class Board(val ROWS: Int, val COLS: Int) {
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Long]] = {
 
-        def idOfLastSquare(squareID: Int) = { squareID + 3 * (COLS + 1) }
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols + 1) }
 
-        val startIndexes = new Array[Int]((ROWS - 4) + (COLS - 3))
+        val startIndexes = new Array[Int]((rows - 4) + (cols - 3))
         var i = 0;
-        for (l ← (COLS to ((ROWS - 4) * COLS) by COLS).reverse) {
+        for (l ← (cols to ((rows - 4) * cols) by cols).reverse) {
             startIndexes(i) = l
             i += 1
         }
-        for (b ← 0 to COLS - 4) {
+        for (b ← 0 to cols - 4) {
             startIndexes(i) = b
             i += 1
         }
 
         (for (startIndex ← startIndexes) yield {
-            var mask = (1l << startIndex | 1l << (startIndex + (COLS + 1)) | 1l << (startIndex + 2 * (COLS + 1)) | 1l << (startIndex + 3 * (COLS + 1)))
+            var mask = (1l << startIndex | 1l << (startIndex + (cols + 1)) | 1l << (startIndex + 2 * (cols + 1)) | 1l << (startIndex + 3 * (cols + 1)))
             var currentIndex = startIndex
             var bitFields = List[Long]()
             while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
                 bitFields = mask :: bitFields
-                currentIndex += (COLS + 1)
-                mask = mask << (COLS + 1)
+                currentIndex += (cols + 1)
+                mask = mask << (cols + 1)
             }
             bitFields.reverse.toArray
         }).toArray
@@ -138,28 +138,28 @@ class Board(val ROWS: Int, val COLS: Int) {
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Long]] = {
 
-        def idOfLastSquare(squareID: Int) = { squareID + 3 * (COLS - 1) }
+        def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols - 1) }
 
-        val startIndexes = new Array[Int]((ROWS - 4) + (COLS - 3))
+        val startIndexes = new Array[Int]((rows - 4) + (cols - 3))
         var i = 0;
-        for (b ← 3 to COLS - 1) {
+        for (b ← 3 to cols - 1) {
             startIndexes(i) = b
             i += 1
         }
-        for (l ← (COLS * 2 - 1 to ((ROWS - 3) * COLS) - 1 by COLS)) {
+        for (l ← (cols * 2 - 1 to ((rows - 3) * cols) - 1 by cols)) {
             startIndexes(i) = l
             i += 1
         }
 
         (for (startIndex ← startIndexes) yield {
-            var mask = (1l << startIndex | 1l << (startIndex + (COLS - 1)) | 1l << (startIndex + 2 * (COLS - 1)) | 1l << (startIndex + 3 * (COLS - 1)))
+            var mask = (1l << startIndex | 1l << (startIndex + (cols - 1)) | 1l << (startIndex + 2 * (cols - 1)) | 1l << (startIndex + 3 * (cols - 1)))
             var currentIndex = startIndex
             var masks = List[Long]()
             while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
                 masks = mask :: masks
-                currentIndex += (COLS - 1)
-                mask = mask << (COLS - 1)
+                currentIndex += (cols - 1)
+                mask = mask << (cols - 1)
             }
             masks.reverse.toArray
         }).toArray
@@ -252,21 +252,21 @@ class Board(val ROWS: Int, val COLS: Int) {
       * @param row The index [0..MAX_ROW_INDEX] of the row.
       * @param col The index [0..MAX_COL_INDEX] of the column.
       */
-    final def squareId(row: Int, col: Int): Int = row * COLS + col
+    final def squareId(row: Int, col: Int): Int = row * cols + col
 
     /**
-      * Returns the id ([0..ROWS-1]) of the row of the given square.
+      * Returns the id ([0..rows-1]) of the row of the given square.
       *
       * @param squareId A valid square id.
       */
-    final def row(squareID: Int): Int = squareID / COLS
+    final def row(squareID: Int): Int = squareID / cols
 
     /**
-      * Returns the id ([0..COLS-1]) of the column of the given square.
+      * Returns the id ([0..cols-1]) of the column of the given square.
       *
       * @param squareId A valid square id.
       */
-    final def column(squareId: Int): Int = squareId % COLS
+    final def column(squareId: Int): Int = squareId % cols
 
     /**
       * Returns the id of the column of the square(s) identified by the mask.

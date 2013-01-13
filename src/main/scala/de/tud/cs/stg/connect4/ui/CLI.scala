@@ -48,6 +48,9 @@ object CLI extends scala.App {
 
     import java.lang.System.in
 
+    /**
+     * Setup of a connect four game
+     */
     class Setup( final val connectFour: ConnectFour) {
 
         import connectFour._
@@ -67,7 +70,7 @@ object CLI extends scala.App {
                     case 'm' ⇒ { // let the ai make the move
                         return aiMove(game.makeMove(game.proposeMove(aiStrength)), aiStrength)
                     }
-                    case c if c >= '0' && c < ('0' + connectFour.COLS) ⇒ {
+                    case c if c >= '0' && c < ('0' + connectFour.cols) ⇒ {
                         game.lowestFreeSquareInColumn(c - '0') match {
                             case Some(squareId) ⇒ return aiMove(game.makeMove(1l << squareId), aiStrength: Int)
                             case _              ⇒ println("The column has no empty square.")

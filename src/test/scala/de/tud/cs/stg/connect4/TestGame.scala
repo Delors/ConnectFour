@@ -56,11 +56,11 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     val b1 = b0.makeMove(1l << 4) // White
     val b2 = b1.makeMove(1l << 3) // Black
     val b3 = b2.makeMove(1l << 2) // White
-    val b4 = b3.makeMove(1l << (2 + connectFour.COLS * 1)) // Black
-    val b5 = b4.makeMove(1l << (2 + connectFour.COLS * 2)) // White
-    val b6 = b5.makeMove(1l << (2 + connectFour.COLS * 3)) // Black
-    val b7 = b6.makeMove(1l << (2 + connectFour.COLS * 4)) // White
-    val b8 = b7.makeMove(1l << (2 + connectFour.COLS * 5)) // Black
+    val b4 = b3.makeMove(1l << (2 + connectFour.cols * 1)) // Black
+    val b5 = b4.makeMove(1l << (2 + connectFour.cols * 2)) // White
+    val b6 = b5.makeMove(1l << (2 + connectFour.cols * 3)) // Black
+    val b7 = b6.makeMove(1l << (2 + connectFour.cols * 4)) // White
+    val b8 = b7.makeMove(1l << (2 + connectFour.cols * 5)) // Black
     val b9 = b8.makeMove(1l) // White
     val b10 = b9.makeMove(1l << (7)) // Black
     val b11 = b10.makeMove(1l << (11)) // White

@@ -149,15 +149,15 @@ class ConnectFour(
         def nextMoves(): scala.collection.Iterator[Mask] = {
             new Iterator[Mask] {
 
-                private var col = (COLS / 2) - 1
+                private var col = (cols / 2) - 1
                 private var startCol = -1
                 private final val mask = 1l << UPPER_LEFT_SQUARE_INDEX
 
                 private def advance() {
-                    col = (col + 1) % COLS
+                    col = (col + 1) % cols
                     if (startCol == -1)
                         startCol = col
-                    else if (col == startCol) { col = COLS; return }
+                    else if (col == startCol) { col = cols; return }
 
                     val currentMask = mask << col
                     if (occupiedInfo.areOccupied(currentMask)) advance()
@@ -165,7 +165,7 @@ class ConnectFour(
 
                 advance()
 
-                def hasNext(): Boolean = col < COLS
+                def hasNext(): Boolean = col < cols
                 def next(): Mask = {
                     val columnMask = columnMasks(col)
                     var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
@@ -173,7 +173,7 @@ class ConnectFour(
                         if (filteredOccupiedInfo.allSquaresEmpty)
                             1l << col
                         else
-                            (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << COLS)
+                            (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << cols)
                     }
                     advance()
                     mask
@@ -191,7 +191,7 @@ class ConnectFour(
           * @return The id of the lowest square in the given column that is free.
           */
         def lowestFreeSquareInColumn(column: Int): Option[Int] =
-            (column to SQUARES by COLS) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
+            (column to SQUARES by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
 
         /**
           * True if all squares are occupied.
@@ -267,7 +267,7 @@ class ConnectFour(
                         val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
                         if (squareWeight > bestSquareWeightOfNextMove)
                             bestSquareWeightOfNextMove = squareWeight
-                        row = ROWS // => break                        
+                        row = rows // => break                        
                     }
                     else {
                         val sid = squareId(row, col)
@@ -281,10 +281,10 @@ class ConnectFour(
                         }
                     }
                     row += 1
-                    mask = mask << COLS
-                } while (row < ROWS)
+                    mask = mask << cols
+                } while (row < rows)
                 col += 1
-            } while (col < COLS)
+            } while (col < cols)
 
             (whiteSquaresCount - blackSquaresCount) match {
                 case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack + bestSquareWeightOfNextMove).toInt
@@ -440,7 +440,7 @@ class ConnectFour(
             }
             string += "\n   "
             // add column indexes 
-            for (c ← 0 until COLS) string += c+" "
+            for (c ← 0 until cols) string += c+" "
             string
         }
 
