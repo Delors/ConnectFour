@@ -35,15 +35,18 @@ package de.tud.cs.stg.connect4
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Information about a specific board. The implementation supports boards that have at least 4 rows and 4
-  * columns and that have at most 8 rows and 8 columns, but does not have more than 56 squares.
+  * All basic information about a specific board. 
+  * 
+  * The implementation supports boards that have at least 4 rows and 4
+  * columns and that have at most 8 rows and 8 columns, but which do not have more than 56 squares; i.e.,
+  * a board has at most eight rows and seven columns or seven rows and eight columns.
   *
-  * @param ROWS The board's number of rows (4 <= ROWS <= 8).
-  * @param COLS The board's number of columns (4 <= COLS <= 8).
+  * @param rows The board's number of rows (4 <= ROWS <= 8).
+  * @param cols The board's number of columns (4 <= COLS <= 8).
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class Board(final val rows: Int, final val cols: Int) {
+class Board( final val rows: Int, final val cols: Int) {
 
     require(rows >= 4 && rows <= 8)
     require(cols >= 4 && cols <= 8)
@@ -54,14 +57,20 @@ class Board(final val rows: Int, final val cols: Int) {
       */
     final val SQUARES = cols * rows
 
-    final val MAX_COL_INDEX = cols - 1
+    /**
+      * The index of the right-most column.
+      */
+    final val maxColIndex = cols - 1
 
-    final val MAX_ROW_INDEX = rows - 1
+    /**
+      * The index of the top-level row.
+      */
+    final val maxRowIndex = rows - 1
 
     final val MAX_SQUARE_INDEX = SQUARES - 1
 
     /**
-      * The id of the square in the upper left-hand corner.
+      * The id of the upper left-hand square.
       */
     final val UPPER_LEFT_SQUARE_INDEX = (rows - 1) * cols
 
@@ -77,15 +86,15 @@ class Board(final val rows: Int, final val cols: Int) {
       */
     final val columnMasks: Array[Mask] = {
         val mask = (1l /: (1 to rows))((v, r) ⇒ (v | (1l << (r * cols))))
-        (for (col ← 0 to MAX_COL_INDEX) yield {
+        (for (col ← 0 to maxColIndex) yield {
             mask << col
         }).toArray
     }
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Long]] = {
         var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
-        (for (r ← 0 to MAX_ROW_INDEX) yield {
-            val rowMasks = (for (c ← 0 to MAX_COL_INDEX - 3) yield {
+        (for (r ← 0 to maxRowIndex) yield {
+            val rowMasks = (for (c ← 0 to maxColIndex - 3) yield {
                 val currentMask = mask
                 mask = mask << 1
                 currentMask
@@ -97,9 +106,9 @@ class Board(final val rows: Int, final val cols: Int) {
 
     final val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Long]] = {
         val initialMask = 1l | (1l << cols) | (1l << 2 * cols) | (1l << 3 * cols)
-        (for (c ← 0 to MAX_COL_INDEX) yield {
+        (for (c ← 0 to maxColIndex) yield {
             var mask = initialMask << c
-            (for (r ← 0 to MAX_ROW_INDEX - 3) yield {
+            (for (r ← 0 to maxRowIndex - 3) yield {
                 val currentMask = mask
                 mask = mask << cols
                 currentMask
@@ -173,14 +182,6 @@ class Board(final val rows: Int, final val cols: Int) {
     )
 
     final val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = ALL_MASKS_FOR_CONNECT4_CHECK.flatten.flatten
-    //    {
-    //        val arrayBuffer = new ArrayBuffer[Long]()
-    //        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_ROWS.flatten)
-    //        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_COLS.flatten)
-    //        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS.flatten)
-    //        arrayBuffer ++= (MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS.flatten)
-    //        arrayBuffer.toArray
-    //    }
 
     /**
       * A square is essential w.r.t. a specific column, row, or one of the diagonals when it is absolutely
@@ -272,7 +273,7 @@ class Board(final val rows: Int, final val cols: Int) {
       * Returns the id of the column of the square(s) identified by the mask.
       */
     final def column(mask: Mask): Int = {
-        for (col ← 0 to MAX_COL_INDEX) {
+        for (col ← 0 to maxColIndex) {
             if ((mask & columnMasks(col)) == mask) return col
         }
         throw new IllegalArgumentException("the mask:\n"+maskToString(mask)+"\ndoes not identify squares in a unique column")
@@ -287,8 +288,8 @@ class Board(final val rows: Int, final val cols: Int) {
         // Tests if the square with given id is set in the given mask.
         def isSet(mask: Long, squareId: Int) = (mask & (1l << squareId)) != 0l
 
-        (for (r ← (0 to MAX_ROW_INDEX).reverse) yield {
-            (0 to MAX_COL_INDEX).map((c) ⇒ if (isSet(mask, squareId(r, c))) "1 " else "0 ").mkString
+        (for (r ← (0 to maxRowIndex).reverse) yield {
+            (0 to maxColIndex).map((c) ⇒ if (isSet(mask, squareId(r, c))) "1 " else "0 ").mkString
         }).mkString("\n")
     }
 

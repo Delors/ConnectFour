@@ -118,9 +118,6 @@ class ConnectFour(
 
     import board._
 
-    private final val LOST = -Int.MaxValue
-
-    private final val WON = Int.MaxValue
 
     /**
       * Represents the current game state: which fields are occupied by which player and which player has
@@ -143,7 +140,7 @@ class ConnectFour(
         def this() { this(OccupiedInfo.create(), PlayerInfo.create()) }
 
         /**
-          * Iterator over the masks that select the squares where the current player is allowed to put its
+          * Iterates over the masks that select the squares where the current player is allowed to put its
           * next man.
           */
         def nextMoves(): scala.collection.Iterator[Mask] = {
@@ -370,6 +367,10 @@ class ConnectFour(
           *     a game that is not too easy.
           */
         def proposeMove(aiStrength: Int): Mask = {
+            val LOST = -Int.MaxValue
+
+    val WON = Int.MaxValue
+            
             val maxDepth = aiStrength * 2
 
             val nextMoves = this.nextMoves()
@@ -427,9 +428,9 @@ class ConnectFour(
         def boardToString(): String = {
             // we have to start with the upper left-hand corner when generating a human-readable representation
             var string = ""
-            for (r ← (0 to MAX_ROW_INDEX).reverse) {
+            for (r ← (0 to maxRowIndex).reverse) {
                 string += r+"  " // add the row index
-                for (c ← 0 to MAX_COL_INDEX) {
+                for (c ← 0 to maxColIndex) {
                     val sid = squareId(r, c)
                     if (occupiedInfo.isOccupied(sid))
                         string += playerInfo.belongsTo(sid).symbol+" "

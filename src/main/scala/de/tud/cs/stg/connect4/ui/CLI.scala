@@ -49,7 +49,7 @@ object CLI extends scala.App {
     import java.lang.System.in
 
     /**
-     * Setup of a connect four game
+     * Basic setup (size of the board and the kind of generated debug information.) of a connect four game.
      */
     class Setup( final val connectFour: ConnectFour) {
 
@@ -81,7 +81,7 @@ object CLI extends scala.App {
                         "Please enter:\n"+
                             "\tp - to get a proposal for a reasonable move.\n"+
                             "\tm - to let the ai make the next move for you.\n"+
-                            "\t[0.."+connectFour.MAX_COL_INDEX+"] - to drop a man in the respective column.")
+                            "\t[0.."+connectFour.maxColIndex+"] - to drop a man in the respective column.")
                 }
                 return playerMove(game, aiStrength)
             }

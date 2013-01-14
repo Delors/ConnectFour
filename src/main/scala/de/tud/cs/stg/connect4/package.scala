@@ -50,8 +50,8 @@ import scala.language.implicitConversions
   * using two long values. The encoding was done such that is efficient to check for lines of four connected
   * men as well as to update the game state.
   *
-  * To make the code more comprehensible two aliases (State and Mask) for the primitive type long are defined
-  * to indicate in which way a particular long value is expected to be used.
+  * To make the code more comprehensible value classes are used to indicate in which way a particular long
+  * value is used.
   *
   * ==License==
   * BSD Style License
@@ -97,12 +97,7 @@ package object connect4 {
       * Type used to specify that the respective long value is a bit mask to get information about which squares
       * are occupied and – if so – by which player. The range of valid values depends on the concrete size of
       * the board. However, it is always a value between 1 (mask for the square in the lower left-hand corner)
-      * and 2^49 in case of a board with seven rows and seven columns.
+      * and 2^56 in case of a board with seven(eight) rows and eight(seven) columns.
       */
     type Mask = Long
-
-    // TODO Use value classes.
-    //    class Mask(val mask: Long) extends AnyVal {
-    //
-    //    }
 }
