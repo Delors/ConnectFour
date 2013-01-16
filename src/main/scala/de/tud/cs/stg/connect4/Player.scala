@@ -33,12 +33,12 @@
 package de.tud.cs.stg.connect4
 
 /**
-  * Represents the players of a connect four game.
+  * Represents a player of a connect four game.
   *
   * @param id The id of the player. `0` for the white player and `1` for the black player.
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class Player(val id: Int) extends AnyVal {
+class Player private (val id: Int) extends AnyVal {
 
     /**
       * `True` if this player instance represents the white player/the starting player, `false` otherwise.
