@@ -33,25 +33,40 @@
 package de.tud.cs.stg.connect4
 
 /**
-  * Indicates the state of the game. Basically, three states are distinguished:
-  *  1. The game is not finished ([[de.tud.cs.stg.connect4.State.notFinished]]).
-  *  1. The game is drawn ([[de.tud.cs.stg.connect4.State.drawn]]).
+  * Indicates the state of the game.
+  *
+  * Basically, three states are distinguished:
+  *  1. The game is not finished ([[de.tud.cs.stg.connect4.State.NotFinished]]).
+  *  1. The game is drawn ([[de.tud.cs.stg.connect4.State.Drawn]]).
   *  1. Some player has won the game.
-  * The value associated with the first state (`notFinished`) is the long value -1l; the long value associated
-  * with the second state (`drawn`) is 0l. The third case uses values in the range: [15...2^(7x7)] to (a)
-  * identify that some player has won and (b) to simultaneously specify the mask that can be used to identify
-  * the line of four connect men on the board.
+  * The value associated with the first state (`NotFinished`) is the long value -1l; the long value associated
+  * with the second state (`Drawn`) is 0l. The third case is a mask to (a)
+  * identify that some player has won and (b) to simultaneously specify the line of four connect men on the
+  * board.
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class State private(val state: Long) extends AnyVal {
+class State private (val state: Long) extends AnyVal {
 
+    /**
+      * `true` if some squares are still empty and no player has won sofar.
+      */
     def isNotFinished: Boolean = state == -1l
 
+    /**
+      * `true` if the game is drawn; i.e., all squares are occupied but no player was able to get a
+      * line of four connected men.
+      */
     def isDrawn: Boolean = state == 0l
 
+    /**
+      * `true` if the game has ended because some player has won or the game is drawn.
+      */
     def isFinished: Boolean = state >= 0l
 
+    /**
+      * `true` if the game has ended, because some player has won.
+      */
     def hasWinner: Boolean = state > 0l
 
     /**
@@ -71,17 +86,19 @@ object State {
     /**
       * Creates a state object that identifies a game that has ended, because a player has won the game.
       *
-      * @param mask The mask that identifies the line of four connected men of the wining player.
+      * @param mask The mask that identifies the line of four connected men of the wining player. The value
+      *     has to be – if SQ is the number of squares of the board – between 15 (1l|1l<<1|1l<<2|1l<<3) and
+      *     1l<<(SQ-4)|1l<<(SQ-3)|1l<<(SQ-2)|1l<<(SQ-1). ''This requirement is not checked at runtime.''
       */
     def apply(mask: Mask): State = new State(mask)
 
     /**
-      * Indicates that the game is not finished. I.e., no player has won and some squares are still empty.
+      * The game is not finished. I.e., no player has won and some squares are still empty.
       */
     final val NotFinished: State = new State(-1l)
 
     /**
-      * Indicates that the game is drawn. I.e., all squares are occupied and no player has won.
+      * The game is drawn. I.e., all squares are occupied and no player has won.
       */
     final val Drawn: State = new State(0l)
 }
