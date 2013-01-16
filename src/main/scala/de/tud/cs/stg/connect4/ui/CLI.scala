@@ -49,10 +49,11 @@ object CLI extends scala.App {
     import java.lang.System.in
 
     /**
-     * Basic setup (size of the board and the kind of generated debug information.) of a connect four game.
-     */
+      * Basic setup (size of the board and the kind of generated debug information.) of a connect four game.
+      */
     class Setup( final val connectFour: ConnectFour) {
 
+        import State._
         import connectFour._
 
         private var aiStrength: Int = 3
@@ -76,7 +77,7 @@ object CLI extends scala.App {
                             case _              ⇒ println("The column has no empty square.")
                         }
                     }
-                    case 'a' ⇒ return (game, State.notFinished)
+                    case 'a' ⇒ return (game, NotFinished)
                     case _ ⇒ println(
                         "Please enter:\n"+
                             "\tp - to get a proposal for a reasonable move.\n"+
@@ -123,8 +124,8 @@ object CLI extends scala.App {
             {
                 print("Do you want to start (y/n)?"); val c = in.read(); println
                 (if (c == 'y') playerMove(new Game, aiStrength) else aiMove(new Game, aiStrength)) match {
-                    case (_, State.notFinished) ⇒ println("Game aborted.")
-                    case (_, State.drawn)       ⇒ println("This game is drawn.")
+                    case (_, NotFinished) ⇒ println("Game aborted.")
+                    case (_, Drawn)       ⇒ println("This game is drawn.")
                     case (game, state) ⇒ {
                         val mask = state.getMask
                         val Some(player) = game.playerInfo.belongTo(mask)

@@ -44,7 +44,7 @@ package de.tud.cs.stg.connect4
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class State(val state: Long) extends AnyVal {
+class State private(val state: Long) extends AnyVal {
 
     def isNotFinished: Boolean = state == -1l
 
@@ -78,10 +78,10 @@ object State {
     /**
       * Indicates that the game is not finished. I.e., no player has won and some squares are still empty.
       */
-    final val notFinished: State = new State(-1l)
+    final val NotFinished: State = new State(-1l)
 
     /**
       * Indicates that the game is drawn. I.e., all squares are occupied and no player has won.
       */
-    final val drawn: State = new State(0l)
+    final val Drawn: State = new State(0l)
 }

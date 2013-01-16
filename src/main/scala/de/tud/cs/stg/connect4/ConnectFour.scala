@@ -236,9 +236,9 @@ class ConnectFour(
 
             // 2. check if the game is finished or not yet decided 
             if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
-                State.drawn
+                State.Drawn
             else
-                State.notFinished
+                State.NotFinished
         }
 
         /**

@@ -131,16 +131,17 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("the game is not finished as long as no player has four connected men and some squares are still empty") {
-            b1.determineState should be(State.notFinished)
-            b2.determineState should be(State.notFinished)
-            b3.determineState should be(State.notFinished)
-            b4.determineState should be(State.notFinished)
-            b5.determineState should be(State.notFinished)
-            b6.determineState should be(State.notFinished)
-            b7.determineState should be(State.notFinished)
-            b8.determineState should be(State.notFinished)
-            b9.determineState should be(State.notFinished)
-            b10.determineState should be(State.notFinished)
+            import State.NotFinished
+            b1.determineState should be(NotFinished)
+            b2.determineState should be(NotFinished)
+            b3.determineState should be(NotFinished)
+            b4.determineState should be(NotFinished)
+            b5.determineState should be(NotFinished)
+            b6.determineState should be(NotFinished)
+            b7.determineState should be(NotFinished)
+            b8.determineState should be(NotFinished)
+            b9.determineState should be(NotFinished)
+            b10.determineState should be(NotFinished)
         }
 
         it("a player wins the game if the player has four connected men in a column") {
