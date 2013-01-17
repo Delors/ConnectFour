@@ -48,114 +48,25 @@ object CLI extends scala.App {
 
     import java.lang.System.in
 
-    /**
-      * Basic setup (size of the board and the kind of generated debug information.) of a connect four game.
-      */
-    class Setup( final val connectFour: ConnectFour) {
+    println("Welcome to connect four 2013!")
 
-        import State._
-        import connectFour._
-
-        private var aiStrength: Int = 3
-
-        private def playerMove(game: Game, aiStrength: Int): (Game, State) = {
-            val state = game.determineState
-            if (state.isNotFinished) {
-                println(game);
-                { print("Choose column: "); val b = in.read(); println; b } match {
-                    case 'p' ⇒ { // let the ai make a proposal
-                        val proposal = connectFour.column(game.proposeMove(aiStrength))
-                        println("\nProposal: "+proposal)
-                        return playerMove(game, aiStrength)
-                    }
-                    case 'm' ⇒ { // let the ai make the move
-                        return aiMove(game.makeMove(game.proposeMove(aiStrength)), aiStrength)
-                    }
-                    case c if c >= '0' && c < ('0' + connectFour.cols) ⇒ {
-                        game.lowestFreeSquareInColumn(c - '0') match {
-                            case Some(squareId) ⇒ return aiMove(game.makeMove(1l << squareId), aiStrength: Int)
-                            case _              ⇒ println("The column has no empty square.")
-                        }
-                    }
-                    case 'a' ⇒ return (game, NotFinished)
-                    case _ ⇒ println(
-                        "Please enter:\n"+
-                            "\tp - to get a proposal for a reasonable move.\n"+
-                            "\tm - to let the ai make the next move for you.\n"+
-                            "\t[0.."+connectFour.maxColIndex+"] - to drop a man in the respective column.")
-                }
-                return playerMove(game, aiStrength)
-            }
-            else {
-                return (game, state)
-            }
+    print("Output the search tree (g) or debug info (d)(Default: <None>)?"); val o = in.read(); println
+    print("Number of rows [4..8](Default: 6; rows*columns <= 56)?"); val r = in.read(); println
+    print("Number of columns [4..8](Default: 7; rows*columns <= 56)?"); val c = in.read(); println
+    val rows: Int = if (r >= '4' && r <= '8') r - '0' else 6
+    val cols: Int = if (c >= '4' && c <= '8') c - '0' else 7
+    val board = new Board(rows, cols)
+    val setup = new Setup(
+        o match {
+            case 'g' ⇒ new ConnectFour(board, false, true)
+            case 'd' ⇒ new ConnectFour(board, true, false)
+            case _   ⇒ new ConnectFour(board, false, false)
         }
+    )
 
-        private def aiMove(game: Game, aiStrength: Int): (Game, State) = {
-            val state = game.determineState
-            if (state.isNotFinished) {
-                val startTime = System.currentTimeMillis()
-                val theMove = game.proposeMove(aiStrength)
-                val requiredTime = (System.currentTimeMillis() - startTime) / 1000.0d
-                println("Found the move ("+board.column(theMove)+") in: "+requiredTime+" secs.")
+    do { // main loop
+        setup.playGame()
+    } while ({ print("Do you want to play a game (Default: y)?"); val c = in.read(); println; c == 'y' })
 
-                return playerMove(game.makeMove(theMove), aiStrength)
-            }
-            else {
-                return (game, state)
-            }
-        }
-
-        /**
-          * Starts a new game using the current game configuration.
-          */
-        def playGame() {
-            {
-                print("Strength of the ai [1..9](Default: 3(weak))?"); val c = in.read(); println
-                if (c >= '1' && c <= '9') {
-                    aiStrength = c - '0';
-                }
-                else {
-                    aiStrength = 3
-                }
-                println("Strength of the AI is set to "+aiStrength+".")
-            }
-
-            {
-                print("Do you want to start (y/n)?"); val c = in.read(); println
-                (if (c == 'y') playerMove(new Game, aiStrength) else aiMove(new Game, aiStrength)) match {
-                    case (_, NotFinished) ⇒ println("Game aborted.")
-                    case (_, Drawn)       ⇒ println("This game is drawn.")
-                    case (game, state) ⇒ {
-                        val mask = state.getMask
-                        val Some(player) = game.playerInfo.belongTo(mask)
-                        println(player+" has won!\n"+connectFour.maskToString(mask))
-                    }
-                }
-            }
-        }
-    }
-
-    { // main
-        print("Output the search tree (g) or debug info (d)(Default: None)?"); val o = in.read(); println
-        print("Number of rows [4..8](Default: 6; rows*columns <= 56)?"); val r = in.read(); println
-        print("Number of columns [4..8](Default: 7; rows*columns <= 56)?"); val c = in.read(); println
-        val rows: Int = if (r >= '4' && r <= '8') r - '0' else 6
-        val cols: Int = if (c >= '4' && c <= '8') c - '0' else 7
-        val board = new Board(rows, cols)
-
-        val setup = new Setup(
-            o match {
-                case 'g' ⇒ new ConnectFour(board, false, true)
-                case 'd' ⇒ new ConnectFour(board, true, false)
-                case _   ⇒ new ConnectFour(board, false, false)
-            }
-        )
-
-        do {
-            setup.playGame()
-        } while ({ print("Do you want to play a game (y)?"); val c = in.read(); println; c == 'y' })
-        println("Good Bye!")
-    }
-
+    println("Good Bye!")
 }
