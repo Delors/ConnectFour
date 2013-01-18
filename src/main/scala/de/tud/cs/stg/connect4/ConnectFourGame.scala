@@ -300,10 +300,6 @@ class ConnectFourGame private (
         // We can use the negamax algorithm because we have a zero-sum two player game where we strictly 
         // alternate between the players and the evaluation function is symmetric. (max(a,b) = -min(-a,-b)).
 
-        // THE FOLLOWING CODE IS DEVELOPED WITH SOME EFFICIENCY IN MIND!
-        // That is, iterator objects and the like are not used for performance reasons. All these design
-        // decisions were tested to have a significant (>>10%) overall performance impact.
-
         // 1. check if the game is finished
         val state = determineState()
         if (state.isDrawn) return 0
