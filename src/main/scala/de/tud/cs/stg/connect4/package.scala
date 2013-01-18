@@ -91,7 +91,7 @@ import scala.language.implicitConversions
   */
 package object connect4 {
 
-    implicit def connectFourToBoard(connectFour: ConnectFour): Board = connectFour.board
+    implicit def connectFourToBoard(connectFourGame: ConnectFourGame): Board = connectFourGame.board
 
     /**
       * Specifies that the respective long value is a bit mask to get information about which squares
