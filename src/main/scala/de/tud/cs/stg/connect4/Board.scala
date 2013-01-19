@@ -35,8 +35,8 @@ package de.tud.cs.stg.connect4
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * All basic information about a specific board. 
-  * 
+  * All basic information about a specific board.
+  *
   * The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 8 rows and 8 columns, but which do not have more than 56 squares; i.e.,
   * a board has at most eight rows and seven columns or seven rows and eight columns.
@@ -55,31 +55,33 @@ class Board( final val rows: Int, final val cols: Int) {
     /**
       * The number of squares.
       */
-    final val SQUARES = cols * rows
+    final val SQUARES: Int = cols * rows
 
     /**
       * The index of the right-most column.
       */
-    final val maxColIndex = cols - 1
+    final val maxColIndex: Int = cols - 1
 
     /**
       * The index of the top-level row.
       */
-    final val maxRowIndex = rows - 1
+    final val maxRowIndex: Int = rows - 1
 
-    final val MAX_SQUARE_INDEX = SQUARES - 1
+    final val MAX_SQUARE_INDEX: Int = SQUARES - 1
 
     /**
       * The id of the upper left-hand square.
       */
-    final val UPPER_LEFT_SQUARE_INDEX = (rows - 1) * cols
+    final val UPPER_LEFT_SQUARE_INDEX: Int = (rows - 1) * cols
+
+    final val upperLeftSquareMask: Mask = 1l << UPPER_LEFT_SQUARE_INDEX
 
     /**
       * Masks the squares in the top-level row of the board.
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    final val TOP_ROW_BOARD_MASK: Long = (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
+    final val TOP_ROW_BOARD_MASK: Mask = (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
 
     /**
       * Array of all masks that mask all squares in a column.

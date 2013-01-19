@@ -143,31 +143,29 @@ class ConnectFour(
           * next man.
           */
         def nextMoves(): scala.collection.Iterator[Mask] = {
+
             new Iterator[Mask] {
 
                 private var col = (cols / 2) - 1
-                private var startCol = -1
-                private final val mask = 1l << UPPER_LEFT_SQUARE_INDEX
+                private var count = cols
 
                 private def advance() {
-                    col = (col + 1) % cols
-                    if (startCol == -1)
-                        startCol = col
-                    else if (col == startCol) { col = cols; return }
-
-                    val currentMask = mask << col
-                    if (occupiedInfo.areOccupied(currentMask)) advance()
+                    do {
+                        count -= 1
+                        col = (col + 1) % cols
+                    } while (occupiedInfo.areOccupied(upperLeftSquareMask << col) && count > 0)
                 }
 
                 advance()
 
-                def hasNext(): Boolean = col < cols
+                def hasNext(): Boolean = count >= 0
+
                 def next(): Mask = {
                     val columnMask = columnMasks(col)
-                    var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
-                    var mask = {
+                    val filteredOccupiedInfo = occupiedInfo.filter(columnMask)
+                    val mask = {
                         if (filteredOccupiedInfo.allSquaresEmpty)
-                            1l << col
+                            1l << col // mask for the next column
                         else
                             (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << cols)
                     }
