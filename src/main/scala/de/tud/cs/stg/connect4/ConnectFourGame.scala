@@ -134,7 +134,6 @@ class ConnectFourGame private (
 
             private var col = (cols / 2) - 1
             private var startCol = -1
-            private final val mask = 1l << UPPER_LEFT_SQUARE_INDEX
 
             private def advance() {
                 col = (col + 1) % cols
@@ -142,7 +141,7 @@ class ConnectFourGame private (
                     startCol = col
                 else if (col == startCol) { col = cols; return }
 
-                val currentMask = mask << col
+                val currentMask = upperLeftSquareMask << col
                 if (occupiedInfo.areOccupied(currentMask)) advance()
             }
 
