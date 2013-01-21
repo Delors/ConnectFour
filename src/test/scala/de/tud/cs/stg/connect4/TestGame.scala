@@ -49,7 +49,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     // Test Fixture
     //
 
-    val b0 = new ConnectFourGame()
+    val b0 = ConnectFourGame(Board6x7)
     val b1 = b0.makeMove(1l << 4) // White
     val b2 = b1.makeMove(1l << 3) // Black
     val b3 = b2.makeMove(1l << 2) // White

@@ -111,7 +111,7 @@ import scala.collection.mutable.Buffer
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class ConnectFour(
+class OLDConnectFour(
         final val board: Board = Board6x7,
         final val DEBUG: Boolean = false,
         final val GENERATE_DOT: Boolean = false) {
@@ -153,7 +153,7 @@ class ConnectFour(
                     do {
                         count -= 1
                         col = (col + 1) % cols
-                    } while (occupiedInfo.areOccupied(upperLeftSquareMask << col) && count > 0)
+                    } while (occupiedInfo.areOccupied(upperLeftSquareMask << col) && count >= 0)
                 }
 
                 advance()

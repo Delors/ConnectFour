@@ -32,6 +32,8 @@
  */
 package de.tud.cs.stg.connect4
 
+import scala.language.existentials
+
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Buffer
 
@@ -71,7 +73,7 @@ import scala.collection.mutable.Buffer
   * ==Getting Started==
   * You first have to create an instance of this class and specify the type of board on which you want to play.
   * {{{
-  * val connectFourGame = new ConnectFourGame(Board6x7)
+  * val connectFourGame = new DefaultConnectFourGame(Board6x7)
   * }}}
   * To update the game state you either call:
   * {{{
@@ -110,19 +112,81 @@ import scala.collection.mutable.Buffer
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-class ConnectFourGame private (
+trait ConnectFourGame {
+
+    protected[connect4]type This <: ConnectFourGame
+
+    protected[connect4] val builder: ConnectFourBuilder[This]
+
+    val board: Board
+
+    protected[connect4] val occupiedInfo: OccupiedInfo
+
+    protected[connect4] val playerInfo: PlayerInfo
+
+    def score(): Int
+
+    protected[connect4] def negamax(depth: Int, alpha: Int, beta: Int): Int
+
+    def determineState(): State
+
+    def allSquaresOccupied(): Boolean
+
+    def nextMoves(): scala.collection.Iterator[Mask]
+
+    def lowestFreeSquareInColumn(column: Int): Option[Int]
+
+    def makeMove(squareMask: Mask): This
+
+    def proposeMove(aiStrength: Int): Mask
+
+    def boardToString(): String
+
+}
+trait ConnectFourBuilder[T <: ConnectFourGame] {
+    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): T
+}
+
+trait Debug extends ConnectFourGame {
+
+    protected[connect4]type This <: ConnectFourGame with Debug
+
+    protected[connect4] var initialSearchDepth: Int
+
+    protected[connect4] abstract override def negamax(depth: Int, alpha: Int, beta: Int): Int = {
+        val score = super.negamax(depth, alpha, beta)
+
+        if (initialSearchDepth - 1 == depth) {
+            val LOST = -Int.MaxValue
+            val WON = Int.MaxValue
+            println("Move: "+ /*board.column(nextMove)+*/ " => "+
+                {
+                    score match {
+                        case `WON`  ⇒ "will win"
+                        case `LOST` ⇒ "will loose"
+                        case v      ⇒ String.valueOf(v)+" (better if larger than a previous move)"
+                    }
+                }
+            )
+        }
+        score
+    }
+
+    abstract override def proposeMove(aiStrength: Int): Mask = {
+        initialSearchDepth = aiStrength * 2
+        super.proposeMove(aiStrength)
+    }
+
+}
+
+abstract class ConnectFourGameLike protected[connect4] (
         final val board: Board,
         final val occupiedInfo: OccupiedInfo,
-        final val playerInfo: PlayerInfo) {
+        final val playerInfo: PlayerInfo) extends ConnectFourGame {
 
     import board._
 
-    def this(board: Board) { this(board, OccupiedInfo.create(), PlayerInfo.create()) }
-
-    /**
-      * Creates a new empty board with six rows and seven columns and the white player has to start.
-      */
-    def this() { this(Board6x7) }
+    protected[connect4]type This <: ConnectFourGameLike
 
     /**
       * Iterates over the masks that select the squares where the current player is allowed to put its
@@ -133,21 +197,19 @@ class ConnectFourGame private (
         new Iterator[Mask] {
 
             private var col = (cols / 2) - 1
-            private var startCol = -1
+            private var count = cols
 
             private def advance() {
-                col = (col + 1) % cols
-                if (startCol == -1)
-                    startCol = col
-                else if (col == startCol) { col = cols; return }
-
-                val currentMask = upperLeftSquareMask << col
-                if (occupiedInfo.areOccupied(currentMask)) advance()
+                do {
+                    count -= 1
+                    col = (col + 1) % cols
+                } while (occupiedInfo.areOccupied(upperLeftSquareMask << col) && count >= 0)
             }
 
             advance()
 
-            def hasNext(): Boolean = col < cols
+            def hasNext(): Boolean = count >= 0
+
             def next(): Mask = {
                 val columnMask = columnMasks(col)
                 var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
@@ -191,8 +253,9 @@ class ConnectFourGame private (
       * @param square The mask that masks the respective square.
       * @return The updated game state.
       */
-    def makeMove(squareMask: Mask): ConnectFourGame =
-        new ConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
+    def makeMove(squareMask: Mask): This = {
+        builder.newConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
+    }
 
     /**
       * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
@@ -290,7 +353,7 @@ class ConnectFourGame private (
       * @param alpha The the best value that the current player can achieve (Initially -Int.MaxValue).
       * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
       */
-    private[connect4] def negamax(
+    protected[connect4] def negamax(
         depth: Int,
         alpha: Int,
         beta: Int): Int = {
@@ -343,8 +406,6 @@ class ConnectFourGame private (
       *     a game that is not too easy.
       */
     def proposeMove(aiStrength: Int): Mask = {
-        val LOST = -Int.MaxValue
-        val WON = Int.MaxValue
 
         val maxDepth = aiStrength * 2
 
@@ -421,5 +482,44 @@ class ConnectFourGame private (
 
 }
 
+object ConnectFourGame {
+    def apply(board: Board) = {
+        class SimpleConnectFourGame protected[connect4] (
+                board: Board,
+                occupiedInfo: OccupiedInfo,
+                playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
 
+            type This = SimpleConnectFourGame
+
+            final val builder: ConnectFourBuilder[This] = {
+                new ConnectFourBuilder[This] {
+                    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This = {
+                        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
+                    }
+                }
+            }
+        }
+        new SimpleConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create())
+    }
+
+    def withDebug(board: Board) = {
+        class DebugConnectFourGame protected[connect4] (
+                board: Board,
+                occupiedInfo: OccupiedInfo,
+                playerInfo: PlayerInfo,
+                var initialSearchDepth: Int = Int.MaxValue) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) with Debug { Game ⇒
+
+            type This = DebugConnectFourGame
+
+            final val builder: ConnectFourBuilder[This] = {
+                new ConnectFourBuilder[This] {
+                    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This = {
+                        new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
+                    }
+                }
+            }
+        }
+        new DebugConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
+    }
+}
 

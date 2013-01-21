@@ -121,13 +121,13 @@ object CLI extends scala.App {
     private val rows: Int = if (r >= '4' && r <= '8') r - '0' else 6
     private val cols: Int = if (c >= '4' && c <= '8') c - '0' else 7
     private val board = new Board(rows, cols)
-    // print("Output the search tree (g) or debug info (d)(Default: <None>)?"); val o = in.read(); println
-    private val connectFourGame = new ConnectFourGame(board)
-    //        o match {
-    //        case 'g' ⇒ new ConnectFour(board, false, true)
-    //        case 'd' ⇒ new ConnectFour(board, true, false)
-    //        case _   ⇒ new ConnectFour(board, false, false)
-    //    }
+    print("Output the search tree (g) or debug info (d)(Default: <None>)?"); val o = in.read(); println
+    private val connectFourGame =
+        o match {
+            //        case 'g' ⇒ new ConnectFour(board, false, true)
+            case 'd' ⇒ ConnectFourGame withDebug (board)
+            case _   ⇒ ConnectFourGame(board)
+        }
 
     do { // main loop
         print("Strength of the ai [1..9](Default: 3(weak))?"); val s = in.read(); println
