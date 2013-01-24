@@ -35,8 +35,9 @@ package de.tud.cs.stg
 import scala.language.implicitConversions
 
 /**
-  * Implementation of "Connect Four" (cf. [[http://en.wikipedia.org/wiki/Connect_Four Wikipedia: Connect Four]]) using
-  * the minimax algorithm as the foundation for the implementation of the artificial intelligence.
+  * Implementation of "Connect Four" (cf. [[http://en.wikipedia.org/wiki/Connect_Four Wikipedia: Connect Four]]) 
+  * using the minimax algorithm as the foundation for the implementation of the artificial intelligence.
+  * (More precisely, the negamax algorithm, which is a variant of the mini-max algorithm, is implemented.)
   *
   * ==Relevant Classes==
   * The game logic is implemented by the class [[de.tud.cs.stg.connect4.ConnectFour]] which is independent of

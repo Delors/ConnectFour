@@ -116,7 +116,7 @@ trait ConnectFourGame {
 
     protected[connect4]type This <: ConnectFourGame
 
-    protected[connect4] val builder: ConnectFourBuilder[This]
+    protected[connect4] def builder: ConnectFourBuilder[This]
 
     val board: Board
 
@@ -127,6 +127,8 @@ trait ConnectFourGame {
     def score(): Int
 
     protected[connect4] def negamax(depth: Int, alpha: Int, beta: Int): Int
+
+    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
     def determineState(): State
 
@@ -153,13 +155,13 @@ trait Debug extends ConnectFourGame {
 
     protected[connect4] var initialSearchDepth: Int
 
-    protected[connect4] abstract override def negamax(depth: Int, alpha: Int, beta: Int): Int = {
-        val score = super.negamax(depth, alpha, beta)
+    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+        val score = super.evaluateMove(nextMove, depth, alpha, beta)
 
         if (initialSearchDepth - 1 == depth) {
             val LOST = -Int.MaxValue
             val WON = Int.MaxValue
-            println("Move: "+ /*board.column(nextMove)+*/ " => "+
+            println("Move: "+board.column(nextMove)+" => "+
                 {
                     score match {
                         case `WON`  ⇒ "will win"
@@ -176,7 +178,6 @@ trait Debug extends ConnectFourGame {
         initialSearchDepth = aiStrength * 2
         super.proposeMove(aiStrength)
     }
-
 }
 
 abstract class ConnectFourGameLike protected[connect4] (
@@ -290,17 +291,17 @@ abstract class ConnectFourGameLike protected[connect4] (
     }
 
     /**
-      * Scores a board by simply calculating the product of the square weights for each player. This
-      * scoring function is extremely fast.
+      * Scores a board by simply calculating the product of the square weights for each player and then
+      * subtracting these values. This scoring function is extremely fast.
       */
     def score(): Int = {
-        // The product of the square weights occupied by each player. (The more "high-valued" squares
-        // a player has, the better.)
-
         var whiteSquaresCount = 0
         var blackSquaresCount = 0
         var productOfSquareWeightsWhite: Long = 1l
         var productOfSquareWeightsBlack: Long = 1l
+
+        // The following value is used to approximate the next move, if the number of men is not equal 
+        // (basically to avoid that the scoring is skewed (too much))
         var bestSquareWeightOfNextMove: Int = 1
 
         var col = 0
@@ -376,14 +377,12 @@ abstract class ConnectFourGameLike protected[connect4] (
         }
 
         // 3. performs a recursive call to this method to continue exploring the search tree
-        var valueOfBestMove = Int.MinValue // we always maximize!
+        var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
         val nextMoves = this.nextMoves()
-        var l = 0
         var newAlpha = alpha
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next
-            val newGame: ConnectFourGame = makeMove(nextMove)
-            var value: Int = -newGame.negamax(depth - 1, -beta, -newAlpha)
+            val value = evaluateMove(nextMove, depth - 1, -beta, -newAlpha)
             if (value >= beta) {
                 // there will be no better move (we don't mind if there are other equally good moves)
                 return value;
@@ -393,13 +392,16 @@ abstract class ConnectFourGameLike protected[connect4] (
                 if (value > newAlpha)
                     newAlpha = value
             }
-            l += 1
         } while (nextMoves.hasNext)
         valueOfBestMove
     }
 
+    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+        -(makeMove(nextMove).negamax(depth, alpha, beta))
+    }
+
     /**
-      * Proposes a ''move'' given the current game state. The minimax algorithm is used to determine it.
+      * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
       *
       * @param aiStrength The strength of the ai. The strength determines the number of rounds the
       *     the ai looks ahead; a round consists of one move by each player. It should be at least 3 for
@@ -410,13 +412,11 @@ abstract class ConnectFourGameLike protected[connect4] (
         val maxDepth = aiStrength * 2
 
         val nextMoves = this.nextMoves()
-        var bestMove: Mask = -1
-        var l = 0
+        var bestMove: Mask = -1l
         var alpha = -Int.MaxValue
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next()
-            val newGame = makeMove(nextMove)
-            var value: Int = -newGame.negamax(maxDepth - 1, -Int.MaxValue, -alpha) //* playerFactor
+            val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
 
             // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
             // choose a move with a value that is equal to the value of a previously evaluated move, it
@@ -424,17 +424,17 @@ abstract class ConnectFourGameLike protected[connect4] (
             // the search true was cut. 
             // Therefore, it is not directly possible to evaluate all equally good moves and we have to
             // use ">" here instead of ">=".
-            if (value > alpha || bestMove == -1) {
+            if (value > alpha || bestMove == -1l) {
                 bestMove = nextMove
                 alpha = value
             }
-            l += 1
         } while (nextMoves.hasNext)
 
         if (alpha == -Int.MaxValue && aiStrength > 2)
             // When the AI determines that it will always loose in the long run (when the opponent plays 
             // perfectly) it may still be possible to prevent the opponent from winning immediately and
-            // hence, if the opponent does not play perfectly, to still win the game. 
+            // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
+            // a meaningfull move, we simply reduce the number of levels we want to explore.
             proposeMove(math.max(1, aiStrength - 2))
         else
             bestMove
@@ -482,43 +482,53 @@ abstract class ConnectFourGameLike protected[connect4] (
 
 }
 
-object ConnectFourGame {
-    def apply(board: Board) = {
-        class SimpleConnectFourGame protected[connect4] (
-                board: Board,
-                occupiedInfo: OccupiedInfo,
-                playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
+protected[connect4] class SimpleConnectFourGame protected[connect4] (
+        board: Board,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
 
-            type This = SimpleConnectFourGame
+    type This = SimpleConnectFourGame
 
-            final val builder: ConnectFourBuilder[This] = {
-                new ConnectFourBuilder[This] {
-                    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This = {
-                        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
-                    }
-                }
-            }
+    final def builder = SimpleConnectFourGame.simpleConnectFourGameBuilder
+
+}
+
+private object SimpleConnectFourGame {
+    final val simpleConnectFourGameBuilder = new ConnectFourBuilder[SimpleConnectFourGame] {
+        def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
+            new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
         }
+    }
+}
+
+/**
+  * Factory to create Connect Four games for specific boards.
+  */
+object ConnectFourGame {
+
+    def apply(board: Board) = {
         new SimpleConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create())
     }
 
     def withDebug(board: Board) = {
         class DebugConnectFourGame protected[connect4] (
-                board: Board,
-                occupiedInfo: OccupiedInfo,
-                playerInfo: PlayerInfo,
-                var initialSearchDepth: Int = Int.MaxValue) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) with Debug { Game ⇒
+            board: Board,
+            occupiedInfo: OccupiedInfo,
+            playerInfo: PlayerInfo,
+            var initialSearchDepth: Int = Int.MaxValue)
+                extends ConnectFourGameLike(board, occupiedInfo, playerInfo)
+                with Debug {
+            Game ⇒
 
             type This = DebugConnectFourGame
 
-            final val builder: ConnectFourBuilder[This] = {
-                new ConnectFourBuilder[This] {
-                    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This = {
-                        new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
-                    }
+            final val builder = new ConnectFourBuilder[This] {
+                def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) = {
+                    new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
                 }
             }
         }
+
         new DebugConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
     }
 }
