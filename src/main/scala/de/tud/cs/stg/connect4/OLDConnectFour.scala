@@ -380,7 +380,7 @@ class OLDConnectFour(
                 val newNodeLabel = if (GENERATE_DOT) String.valueOf(column(nextMove))+"↓" else ""
                 var value: Int = -newGame.negamax(maxDepth - 1, -Int.MaxValue, -alpha, newNodeLabel) //* playerFactor
                 if (GENERATE_DOT) println("\"root\" -> "+"\""+newNodeLabel+"\";")
-                if (GENERATE_DOT) println("\""+newNodeLabel+"\" [shape=record,label=\"{alpha="+(-Int.MaxValue)+"|beta="+(-alpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
+                if (GENERATE_DOT) println("\""+newNodeLabel+"\" [label=\"{alpha="+(-Int.MaxValue)+"|beta="+(-alpha)+"| v("+newNodeLabel+")="+(value)+"}\"];")
                 if (DEBUG) println("Move: "+column(nextMove)+" => "+{ value match { case `WON` ⇒ "will win"; case `LOST` ⇒ "will loose"; case v ⇒ String.valueOf(v)+" (better if larger than a previous move)" } })
 
                 // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would

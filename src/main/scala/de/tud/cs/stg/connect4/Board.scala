@@ -67,6 +67,9 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final val maxRowIndex: Int = rows - 1
 
+    /**
+      * Index of the square in the upper right-hand corner.
+      */
     final val MAX_SQUARE_INDEX: Int = squares - 1
 
     /**
@@ -74,6 +77,9 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final val UPPER_LEFT_SQUARE_INDEX: Int = (rows - 1) * cols
 
+    /**
+      * Masks the square in the upper left-hand corner.
+      */
     final val upperLeftSquareMask: Mask = 1l << UPPER_LEFT_SQUARE_INDEX
 
     /**
@@ -84,7 +90,8 @@ class Board( final val rows: Int, final val cols: Int) {
     final val TOP_ROW_BOARD_MASK: Mask = (0l /: (UPPER_LEFT_SQUARE_INDEX until squares))(_ | 1l << _)
 
     /**
-      * Array of all masks that mask all squares in a column.
+      * Array of the masks that mask all squares in a column. I.e., the first element of the array
+      * contains a mask that masks all squares in the first column (index 0).
       */
     final val columnMasks: Array[Mask] = {
         val mask = (1l /: (1 to rows))((v, r) ⇒ (v | (1l << (r * cols))))
@@ -273,18 +280,21 @@ class Board( final val rows: Int, final val cols: Int) {
 
     /**
       * Returns the id of the column of the square(s) identified by the mask.
+      * If squares in different columns are masked, an IllegalArgumentException is thrown.
       */
     final def column(mask: Mask): Int = {
         for (col ← 0 to maxColIndex) {
             if ((mask & columnMasks(col)) == mask) return col
         }
-        throw new IllegalArgumentException("the mask:\n"+maskToString(mask)+"\ndoes not identify squares in a unique column")
+        throw new IllegalArgumentException(
+            "the mask:\n"+maskToString(mask)+"\nidentifies squares in several columns"
+        )
     }
 
     /**
       * Creates a human-readable representation of the given mask.
       *
-      * Masks are used to analyze a board's state; i.e, which fields are occupied by which player.
+      * Masks are generally used to analyze a board's state; i.e, which fields are occupied by which player.
       */
     def maskToString(mask: Mask): String = {
         // Tests if the square with given id is set in the given mask.
@@ -296,7 +306,7 @@ class Board( final val rows: Int, final val cols: Int) {
     }
 
     /**
-      * Creates a human-readable representation of all given masks.
+      * Creates a human-readable representation of the given array of masks.
       */
     def masksToString(masks: Array[Mask]): String = ("" /: masks)(_ + maskToString(_)+"\n\n")
 }

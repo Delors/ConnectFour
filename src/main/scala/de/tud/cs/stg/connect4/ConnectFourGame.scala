@@ -149,6 +149,7 @@ trait ConnectFourGame {
     def boardToString(): String
 
 }
+
 trait ConnectFourBuilder[T <: ConnectFourGame] {
     def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): T
 }
@@ -184,11 +185,26 @@ trait Debug extends ConnectFourGame {
     }
 }
 
-trait DotOutput extends ConnectFourGame {
-    
-    protected[connect4]type This <: ConnectFourGame with DotOutput
-    
-}
+//trait DotOutput extends ConnectFourGame {
+//
+//    protected[connect4]type This <: ConnectFourGame with DotOutput
+//
+//    protected[connect4] var initialSearchDepth: Int
+//
+//    protected[connect4] var nodeLabel: String
+//
+//    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+//    }
+//
+//    abstract override def proposeMove(aiStrength: Int): Mask = {
+//        println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
+//        initialSearchDepth = aiStrength * 2
+//
+//        super.proposeMove(aiStrength)
+//        println("\"root\" [label="+alpha+"];\n}")
+//    }
+//
+//}
 
 abstract class ConnectFourGameLike protected[connect4] (
         final val board: Board,
@@ -310,8 +326,8 @@ abstract class ConnectFourGameLike protected[connect4] (
         var productOfSquareWeightsWhite: Long = 1l
         var productOfSquareWeightsBlack: Long = 1l
 
-        // The following value is used to approximate the next move, if the number of men is not equal 
-        // (basically to avoid that the scoring is skewed (too much))
+        // The following value is used to approximate the next move which is important if the number of men is 
+        // not equal and we want to avoid that the scoring is skewed (too much)
         var bestSquareWeightOfNextMove: Int = 1
 
         var col = 0
