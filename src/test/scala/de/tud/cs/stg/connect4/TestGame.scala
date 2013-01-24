@@ -105,7 +105,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     describe("connect 4 - ") {
 
         it("the board is empty when the game starts") {
-            for (i ← 0 until b0.SQUARES) {
+            for (i ← 0 until b0.squares) {
                 b0.occupiedInfo.isOccupied(i) should be(false)
             }
         }

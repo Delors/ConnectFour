@@ -55,7 +55,7 @@ class Board( final val rows: Int, final val cols: Int) {
     /**
       * The number of squares.
       */
-    final val SQUARES: Int = cols * rows
+    final val squares: Int = cols * rows
 
     /**
       * The index of the right-most column.
@@ -67,7 +67,7 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final val maxRowIndex: Int = rows - 1
 
-    final val MAX_SQUARE_INDEX: Int = SQUARES - 1
+    final val MAX_SQUARE_INDEX: Int = squares - 1
 
     /**
       * The id of the upper left-hand square.
@@ -81,7 +81,7 @@ class Board( final val rows: Int, final val cols: Int) {
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    final val TOP_ROW_BOARD_MASK: Mask = (0l /: (UPPER_LEFT_SQUARE_INDEX until SQUARES))(_ | 1l << _)
+    final val TOP_ROW_BOARD_MASK: Mask = (0l /: (UPPER_LEFT_SQUARE_INDEX until squares))(_ | 1l << _)
 
     /**
       * Array of all masks that mask all squares in a column.
@@ -197,8 +197,8 @@ class Board( final val rows: Int, final val cols: Int) {
         )))
 
     final val ESSENTIAL_SQUARE_WEIGHTS: Array[Int] = {
-        val squareWeights = new Array[Int](SQUARES)
-        for (squareId ← 0 to SQUARES - 1) {
+        val squareWeights = new Array[Int](squares)
+        for (squareId ← 0 to squares - 1) {
             var count = 0
             for (
                 masks ← ALL_ESSENTIAL_SQUARES_MASKS;
@@ -226,10 +226,10 @@ class Board( final val rows: Int, final val cols: Int) {
       *  3.. 4.. 5.. 7.. 5.. 4.. 3
       */
     final val SQUARE_WEIGHTS: Array[Int] = {
-        val squareWeights = new Array[Int](SQUARES)
+        val squareWeights = new Array[Int](squares)
 
         def evalBoardMask(boardMask: Long) {
-            (0 until SQUARES).foreach((index) ⇒ {
+            (0 until squares).foreach((index) ⇒ {
                 if ((boardMask & (1l << index)) != 0l) squareWeights(index) += 1
             })
         }

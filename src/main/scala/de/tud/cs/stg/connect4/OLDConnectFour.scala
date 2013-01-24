@@ -185,7 +185,7 @@ class OLDConnectFour(
           * @return The id of the lowest square in the given column that is free.
           */
         def lowestFreeSquareInColumn(column: Int): Option[Int] =
-            (column to SQUARES by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
+            (column to squares by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
 
         /**
           * True if all squares are occupied.

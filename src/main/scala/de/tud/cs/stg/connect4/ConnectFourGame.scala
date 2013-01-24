@@ -54,8 +54,8 @@ import scala.collection.mutable.Buffer
   * (4x4) - in such a case the ai plays perfectly.
   *
   * In the following we use the following terminology:
-  *  - The game is always played by exactly two ''PLAYER''s on a ''BOARD'' that typically has 6 ROWS x 7 COLUMNS =
-  * 42 SQUARES.
+  *  - The game is always played by exactly two ''PLAYER''s on a ''BOARD'' that typically has 6 ''ROWS'' x
+  *     7 ''COLUMNS'' = 42 SQUARES.
   *  - The first player is called the ''WHITE'' player and has the integer identifier 0.
   *  - The second player is called the ''BLACK'' player and has the integer identifier 1.
   *  - Given a board with 6 rows and 7 columns each player has 21 MEN. Dropping a man in a column is called a ''MOVE''.
@@ -89,7 +89,7 @@ import scala.collection.mutable.Buffer
   * }}}
   *
   * ==Implementation Details==
-  * Internally, two long values are use to encode the game state. The game state encompasses the information
+  * Two long values are use to encode the game state. The game state encompasses the information
   * which squares are occupied (encoded using the first (ROWS x COLUMNS) bits of the first long value) and
   * – if so – by which player a square is occupied (using the first ROWS x COLUMNS bits of the second long
   * value). Hence, a specific bit of the second long value has a meaning if – and only if – the same
@@ -104,12 +104,6 @@ import scala.collection.mutable.Buffer
   * special bit masks and these masks are just matched (by means of the "&" operator)
   * against both long values to determine whether a certain player has won the game.
   *
-  *
-  * @param board The board on which the game will be played.
-  * @param occupiedInfo Encodes which squares are occupied.
-  * @param playerInfo In combination with `occupiedInfo` encodes the information which player
-  *     occupies a square and also encodes the information which player has to make the next move.
-  *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 trait ConnectFourGame {
@@ -118,10 +112,20 @@ trait ConnectFourGame {
 
     protected[connect4] def builder: ConnectFourBuilder[This]
 
+    /**
+      * The board on which the game will be played.
+      */
     val board: Board
 
+    /**
+      * Encodes which squares are occupied.
+      */
     protected[connect4] val occupiedInfo: OccupiedInfo
 
+    /**
+      * In combination with `occupiedInfo` encodes the information which player occupies a square and also
+      * encodes the information which player has to make the next move.
+      */
     protected[connect4] val playerInfo: PlayerInfo
 
     def score(): Int
@@ -180,6 +184,12 @@ trait Debug extends ConnectFourGame {
     }
 }
 
+trait DotOutput extends ConnectFourGame {
+    
+    protected[connect4]type This <: ConnectFourGame with DotOutput
+    
+}
+
 abstract class ConnectFourGameLike protected[connect4] (
         final val board: Board,
         final val occupiedInfo: OccupiedInfo,
@@ -236,7 +246,7 @@ abstract class ConnectFourGameLike protected[connect4] (
       * @return The id of the lowest square in the given column that is free.
       */
     def lowestFreeSquareInColumn(column: Int): Option[Int] =
-        (column to SQUARES by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
+        (column to squares by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
 
     /**
       * True if all squares are occupied.
