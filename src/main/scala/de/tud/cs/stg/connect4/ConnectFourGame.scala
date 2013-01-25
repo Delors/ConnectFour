@@ -33,9 +33,11 @@
 package de.tud.cs.stg.connect4
 
 import scala.language.existentials
-
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Buffer
+import scala.collection.generic.BitOperations
+import scala.collection.generic.BitOperations
+import java.util.BitSet
 
 /**
   * Represents the current game state: which fields are occupied by which player and which player has
@@ -110,7 +112,7 @@ trait ConnectFourGame {
 
     protected[connect4]type This <: ConnectFourGame
 
-    protected[connect4] def builder: ConnectFourBuilder[This]
+    protected[connect4] def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This
 
     /**
       * The board on which the game will be played.
@@ -130,11 +132,13 @@ trait ConnectFourGame {
 
     def score(): Int
 
-    protected[connect4] def negamax(depth: Int, alpha: Int, beta: Int): Int
+    protected[connect4] def negamax(lastMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
-    def determineState(): State
+        def determineState: State
+
+    def determineState(lastMove: Mask): State
 
     def allSquaresOccupied(): Boolean
 
@@ -148,10 +152,6 @@ trait ConnectFourGame {
 
     def boardToString(): String
 
-}
-
-trait ConnectFourBuilder[T <: ConnectFourGame] {
-    def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): T
 }
 
 trait Debug extends ConnectFourGame {
@@ -193,15 +193,24 @@ trait Debug extends ConnectFourGame {
 //
 //    protected[connect4] var nodeLabel: String
 //
+//    protected[connect4] var bestScore: Int
+//
 //    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+//        val score = super.evaluateMove(nextMove, depth, alpha, beta)
+//        if (score > bestScore)
+//            bestScore = score;
+//        score
 //    }
 //
 //    abstract override def proposeMove(aiStrength: Int): Mask = {
-//        println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
+//        nodeLabel = ""
+//        bestScore = Int.MinValue
 //        initialSearchDepth = aiStrength * 2
 //
-//        super.proposeMove(aiStrength)
-//        println("\"root\" [label="+alpha+"];\n}")
+//        println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
+//        val mask = super.proposeMove(aiStrength)
+//        println("\"root\" [label="+bestScore+"];\n}")
+//        mask
 //    }
 //
 //}
@@ -281,7 +290,7 @@ abstract class ConnectFourGameLike protected[connect4] (
       * @return The updated game state.
       */
     def makeMove(squareMask: Mask): This = {
-        builder.newConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
+        newConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
     }
 
     /**
@@ -296,11 +305,27 @@ abstract class ConnectFourGameLike protected[connect4] (
       * ==Note==
       * Every call to this method (re)analyses the board.
       */
-    def determineState(): State = determineState(occupiedInfo, playerInfo)
-
-    private def determineState(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
+    def determineState(): State = {
         // 1. check if we can find a line of four connected men
         val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
+        val allMasksCount = allMasks.size
+        var m = 0
+        do {
+            val mask = allMasks(m)
+            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
+            m += 1
+        } while (m < allMasksCount)
+
+        // 2. check if the game is finished or not yet decided 
+        if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
+            State.Drawn
+        else
+            State.NotFinished
+    }
+
+    def determineState(lastMove: Mask): State = {
+        // 1. check if we can find a line of four connected men
+        val allMasks = masksForConnect4CheckForSquare(squareId(lastMove))
         val allMasksCount = allMasks.size
         var m = 0
         do {
@@ -381,6 +406,7 @@ abstract class ConnectFourGameLike protected[connect4] (
       * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
       */
     protected[connect4] def negamax(
+        lastMove: Mask,
         depth: Int,
         alpha: Int,
         beta: Int): Int = {
@@ -390,7 +416,7 @@ abstract class ConnectFourGameLike protected[connect4] (
         // alternate between the players and the evaluation function is symmetric. (max(a,b) = -min(-a,-b)).
 
         // 1. check if the game is finished
-        val state = determineState()
+        val state = determineState(lastMove)
         if (state.isDrawn) return 0
         if (state.hasWinner /* <=> the player who made the last move has won */ ) return -Int.MaxValue
 
@@ -423,7 +449,7 @@ abstract class ConnectFourGameLike protected[connect4] (
     }
 
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-        -(makeMove(nextMove).negamax(depth, alpha, beta))
+        -(makeMove(nextMove).negamax(nextMove, depth, alpha, beta))
     }
 
     /**
@@ -515,15 +541,8 @@ protected[connect4] class SimpleConnectFourGame protected[connect4] (
 
     type This = SimpleConnectFourGame
 
-    final def builder = SimpleConnectFourGame.simpleConnectFourGameBuilder
-
-}
-
-private object SimpleConnectFourGame {
-    final val simpleConnectFourGameBuilder = new ConnectFourBuilder[SimpleConnectFourGame] {
-        def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
-            new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
-        }
+    final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
+        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
     }
 }
 
@@ -548,10 +567,8 @@ object ConnectFourGame {
 
             type This = DebugConnectFourGame
 
-            final val builder = new ConnectFourBuilder[This] {
-                def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) = {
-                    new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
-                }
+            final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): DebugConnectFourGame = {
+                new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
             }
         }
 

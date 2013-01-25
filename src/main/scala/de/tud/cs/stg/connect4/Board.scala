@@ -32,8 +32,6 @@
  */
 package de.tud.cs.stg.connect4
 
-import scala.collection.mutable.ArrayBuffer
-
 /**
   * All basic information about a specific board.
   *
@@ -193,6 +191,18 @@ class Board( final val rows: Int, final val cols: Int) {
     final val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = ALL_MASKS_FOR_CONNECT4_CHECK.flatten.flatten
 
     /**
+      * Array[#SQUARES] of an array of masks that need to be considered in a connect four check if a men was
+      * put in a specific square.
+      */
+    final val masksForConnect4CheckForSquare: Array[Array[Mask]] = {
+        (for (squareId ← (0 to MAX_SQUARE_INDEX)) yield {
+            val filterMask: Long = 1l << squareId
+            val r = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK.filter(mask ⇒ (mask & filterMask) != 0l).toArray
+            r
+        }).toArray
+    }
+
+    /**
       * A square is essential w.r.t. a specific column, row, or one of the diagonals when it is absolutely
       * necessary to poses the respective square to be able get a line of four connected men. For example,
       * in the first column the third and fourth squares are essential. A player who does not get
@@ -289,6 +299,24 @@ class Board( final val rows: Int, final val cols: Int) {
         throw new IllegalArgumentException(
             "the mask:\n"+maskToString(mask)+"\nidentifies squares in several columns"
         )
+    }
+
+    final def squareId(singleSquareMask: Mask): Int = {
+        var upperBound = MAX_SQUARE_INDEX
+        var lowerBound = 0
+        var id = upperBound / 2;
+        var value = (singleSquareMask >>> id)
+        while (value != 1l) {
+            if (value > 0) {
+                lowerBound = id + 1
+            }
+            else {
+                upperBound = id - 1
+            }
+            id = (upperBound + lowerBound) / 2
+            value = (singleSquareMask >>> id)
+        }
+        id
     }
 
     /**
