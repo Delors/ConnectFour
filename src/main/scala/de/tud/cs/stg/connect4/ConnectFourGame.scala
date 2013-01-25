@@ -136,7 +136,7 @@ trait ConnectFourGame {
 
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
-        def determineState: State
+    def determineState: State
 
     def determineState(lastMove: Mask): State
 
@@ -323,8 +323,15 @@ abstract class ConnectFourGameLike protected[connect4] (
             State.NotFinished
     }
 
+    /**
+      * Determines the state of the game given the last made move. The result is only well defined iff
+      * the game was not already finished before the last move.
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the board.
+      */
     def determineState(lastMove: Mask): State = {
-        // 1. check if we can find a line of four connected men
+        // 1. check if we can find a line of four connected men related to the last move
         val allMasks = masksForConnect4CheckForSquare(squareId(lastMove))
         val allMasksCount = allMasks.size
         var m = 0
