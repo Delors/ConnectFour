@@ -136,14 +136,34 @@ trait ConnectFourGame {
 
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
-    def determineState: State
+    def determineState(): State
 
+    /**
+      * Determines the current state given the last move. This method is generally more efficient than
+      * the generalized `determineState` method.
+      */
     def determineState(lastMove: Mask): State
 
     def allSquaresOccupied(): Boolean
 
+    /**
+      * Iterates over the masks that select the squares where the current player is allowed to put its
+      * next man. We always start with the mask that selects the lowest free square in the middle column
+      * as this is often the most relevant one (move ordering).
+      */
     def nextMoves(): scala.collection.Iterator[Mask]
 
+    /**
+      * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None`
+      * otherwise.
+      *
+      * ==Note==
+      * This method is not optimized and is therefore not intended to be used by the ai – it can, however,
+      * be used in an interactive game.
+      *
+      * @param column A valid column identifier ([0..MAX_COL_INDEX]).
+      * @return The id of the lowest square in the given column that is free.
+      */
     def lowestFreeSquareInColumn(column: Int): Option[Int]
 
     def makeMove(squareMask: Mask): This
@@ -224,11 +244,6 @@ abstract class ConnectFourGameLike protected[connect4] (
 
     protected[connect4]type This <: ConnectFourGameLike
 
-    /**
-      * Iterates over the masks that select the squares where the current player is allowed to put its
-      * next man. We always start with the mask that selects the lowest free square in the middle column
-      * as this is often the most relevant one (move ordering).
-      */
     def nextMoves(): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
 
@@ -261,17 +276,10 @@ abstract class ConnectFourGameLike protected[connect4] (
         }
     }
 
-    /**
-      * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None` otherwise.
-      *
-      * ==Note==
-      * This method is not optimized and is therefore not intended to be used by the ai.
-      *
-      * @param column A valid column identifier ([0..MAX_COL_INDEX]).
-      * @return The id of the lowest square in the given column that is free.
-      */
     def lowestFreeSquareInColumn(column: Int): Option[Int] =
-        (column to squares by cols) collectFirst ({ case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId })
+        (column to squares by cols) collectFirst ({
+            case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId
+        })
 
     /**
       * True if all squares are occupied.
@@ -305,34 +313,20 @@ abstract class ConnectFourGameLike protected[connect4] (
       * ==Note==
       * Every call to this method (re)analyses the board.
       */
-    def determineState(): State = {
-        // 1. check if we can find a line of four connected men
-        val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
-        val allMasksCount = allMasks.size
-        var m = 0
-        do {
-            val mask = allMasks(m)
-            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
-            m += 1
-        } while (m < allMasksCount)
-
-        // 2. check if the game is finished or not yet decided 
-        if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
-            State.Drawn
-        else
-            State.NotFinished
-    }
+    def determineState(): State = determineState(FLAT_ALL_MASKS_FOR_CONNECT4_CHECK)
 
     /**
-      * Determines the state of the game given the last made move. The result is only well defined iff
-      * the game was not already finished before the last move.
+      * Determines the state ([[de.tud.cs.stg.connect4.State]]) of the game given the last made move.
+      * The result is only well defined iff the game was not already finished before the last move.
       *
       * ==Note==
       * Every call to this method (re)analyses the board.
       */
-    def determineState(lastMove: Mask): State = {
+    def determineState(lastMove: Mask): State =
+        determineState(masksForConnect4CheckForSquare(squareId(lastMove)))
+
+    private def determineState(allMasks: Array[Mask]): State = {
         // 1. check if we can find a line of four connected men related to the last move
-        val allMasks = masksForConnect4CheckForSquare(squareId(lastMove))
         val allMasksCount = allMasks.size
         var m = 0
         do {
@@ -408,6 +402,7 @@ abstract class ConnectFourGameLike protected[connect4] (
       * Before the immediate last move the game was not already finished. I.e., the return value is
       * not defined when the game was already won by a player before the last move.
       *
+      * @param lastMove The last move that was made and which led to the current board.
       * @param depth The remaining number of levels that should be explored.
       * @param alpha The the best value that the current player can achieve (Initially -Int.MaxValue).
       * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
