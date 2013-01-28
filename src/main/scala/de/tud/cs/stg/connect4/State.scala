@@ -76,8 +76,9 @@ class State private (val state: Long) extends AnyVal {
       */
     def getMask: Mask = state
 }
+
 /**
-  * Utility methods related to creating state objects.
+  * Factory to create state objects.
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */

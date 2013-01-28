@@ -78,6 +78,12 @@ private[connect4] class PlayerInfo(val playerInfo: Long) extends AnyVal {
             new PlayerInfo((playerInfo | squareMask) & Long.MaxValue)
 
 }
+
+/**
+  * Factory object to create `PlayerInfo` instances.
+  *
+  * @author Michael Eichberg
+  */
 private[connect4] object PlayerInfo {
 
     /**

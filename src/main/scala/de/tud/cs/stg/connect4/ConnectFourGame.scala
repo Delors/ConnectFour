@@ -35,9 +35,6 @@ package de.tud.cs.stg.connect4
 import scala.language.existentials
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Buffer
-import scala.collection.generic.BitOperations
-import scala.collection.generic.BitOperations
-import java.util.BitSet
 
 /**
   * Represents the current game state: which fields are occupied by which player and which player has
@@ -75,7 +72,7 @@ import java.util.BitSet
   * ==Getting Started==
   * You first have to create an instance of this class and specify the type of board on which you want to play.
   * {{{
-  * val connectFourGame = new DefaultConnectFourGame(Board6x7)
+  * val connectFourGame = ConnectFourGame(Board6x7)
   * }}}
   * To update the game state you either call:
   * {{{
@@ -85,7 +82,7 @@ import java.util.BitSet
   * {{{
   * connectFourGame = connectFourGame.makeMove(game.proposeMove(aiStrength))
   * }}}
-  * To evaluate the game state, i.e., to determine whether some user has won or the game is drawn call:
+  * To evaluate the game state, i.e., to determine whether some user has won or the game is drawn, call:
   * {{{
   * connectFourGame.determineState()
   * }}}
@@ -112,6 +109,9 @@ trait ConnectFourGame {
 
     protected[connect4]type This <: ConnectFourGame
 
+    /**
+      * Creates a new ConnectFourGame object.
+      */
     protected[connect4] def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This
 
     /**
@@ -130,20 +130,81 @@ trait ConnectFourGame {
       */
     protected[connect4] val playerInfo: PlayerInfo
 
+    /**
+      * Scores the current board. The value is positive if the white player has an advantage and
+      * negative if the black player has an advantage. The value will be in the range (-Int.MaxValue..
+      * Int.MaxValue) unless the white or the black player will definitively win. In that case the value is
+      * either Int.MaxValue or -Int.MaxValue.
+      *
+      * ==Note==
+      * The value Int.MinValue == -Int.MaxValue-1 is reserved for internal purposes.
+      *
+      * @return The score of the current board [-Int.MaxValue..Int.MaxValue].
+      */
     def score(): Int
 
+    /**
+      * Assesses the current board form the perspective of the current player. The value will be between
+      * -Int.MaxValue and Int.MaxValue. A positive value indicates that the current player has an
+      * advantage. A negative value indicates that the opponent has an advantage. If the value
+      * is (-)Int.MaxValue the current(opponent) player can/will win. If the value is 0 either the game is
+      * drawn or the ai was not able to determine if any player has an advantage.
+      *
+      * Subclasses are explicitly allowed to implement ''fail-soft alpha-beta pruning''. Hence, two moves
+      * that are rated equally are not necessarily equally good when the second move was evaluated given
+      * some alpha-beta bounds.
+      *
+      * ==Precondition==
+      * Before the immediate last move the game was not already finished. I.e., the return value is
+      * not defined when the game was already won by a player before the last move.
+      *
+      * @param lastMove The last move that was made and which led to the current board.
+      * @param depth The remaining number of levels of the search tree that should be explored.
+      * @param alpha The best value that the current player can achieve (Initially -Int.MaxValue).
+      * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
+      */
     protected[connect4] def negamax(lastMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
+    /**
+      * Creates a new `ConnectFourGame` object and initializes it with the updated board.
+      *
+      * ==Note==
+      * This method was introduced as a hook to enable subclasses to intercept calls to the `negamax` which
+      * are generally not called on this object but on the new `ConnectFourGame` object which encapsulates
+      * the updated game logic.
+      */
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
+    /**
+      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
+      *
+      * Either returns:
+      *  - DRAWN (0l) if the game is finished (i.e., all squares are occupied), but no player has won.
+      *  - NOT_FINISHED (-1l) if no player has won so far and some squares are empty.
+      *  - a mask (some positive value >= 15 (00000....00001111)) that identifies the squares with
+      *     the four connected men.
+      *
+      * The result is only well defined iff the game was not already finished before the last move.
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the board.
+      */
     def determineState(): State
 
     /**
-      * Determines the current state given the last move. This method is generally more efficient than
-      * the generalized `determineState` method.
+      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) given the last move. This method is
+      * generally more efficient than the parameter-less `determineState` method.
+      *
+      * The result is only well defined iff the game was not already finished before the last move.
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the board given the last move
       */
     def determineState(lastMove: Mask): State
 
+    /**
+      * True if all squares of the board are occupied.
+      */
     def allSquaresOccupied(): Boolean
 
     /**
@@ -166,10 +227,43 @@ trait ConnectFourGame {
       */
     def lowestFreeSquareInColumn(column: Int): Option[Int]
 
+    /**
+      * Creates a new `ConnectFourGame` object by putting a man in the given square and updating the
+      * information which player has to make the next move.
+      *
+      * ==Prerequisites==
+      * The squares below the square have to be occupied and the specified square has to be empty.
+      * However, both is not checked.
+      *
+      * @param square The mask that masks the respective square.
+      * @return The updated game object.
+      */
     def makeMove(squareMask: Mask): This
 
+    /**
+      * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
+      *
+      * @param aiStrength The strength of the ai. The strength determines the number of rounds the
+      *     the ai looks ahead; a round consists of one move by each player. The `aiStrength` should be at
+      *     least 3 for a game that is not too easy.
+      */
     def proposeMove(aiStrength: Int): Mask
 
+    /**
+      * Returns a human-readable representation of the board that is suitable for console output.
+      *
+      * E.g.
+      * <pre>
+      * 5      ◼
+      * 4      ○
+      * 3      ◼
+      * 2      ○   ○
+      * 1  ◼ ◼ ◼ ◼ ○
+      * 0  ○ ◼ ○ ◼ ○   ○
+      *
+      *    0 1 2 3 4 5 6
+      * </pre>
+      */
     def boardToString(): String
 
 }
@@ -234,308 +328,6 @@ trait Debug extends ConnectFourGame {
 //    }
 //
 //}
-
-abstract class ConnectFourGameLike protected[connect4] (
-        final val board: Board,
-        final val occupiedInfo: OccupiedInfo,
-        final val playerInfo: PlayerInfo) extends ConnectFourGame {
-
-    import board._
-
-    protected[connect4]type This <: ConnectFourGameLike
-
-    def nextMoves(): scala.collection.Iterator[Mask] = {
-        new Iterator[Mask] {
-
-            private var col = (cols / 2) - 1
-            private var count = cols
-
-            private def advance() {
-                do {
-                    count -= 1
-                    col = (col + 1) % cols
-                } while (occupiedInfo.areOccupied(upperLeftSquareMask << col) && count >= 0)
-            }
-
-            advance()
-
-            def hasNext(): Boolean = count >= 0
-
-            def next(): Mask = {
-                val columnMask = columnMasks(col)
-                var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
-                var mask = {
-                    if (filteredOccupiedInfo.allSquaresEmpty)
-                        1l << col
-                    else
-                        (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << cols)
-                }
-                advance()
-                mask
-            }
-        }
-    }
-
-    def lowestFreeSquareInColumn(column: Int): Option[Int] =
-        (column to squares by cols) collectFirst ({
-            case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId
-        })
-
-    /**
-      * True if all squares are occupied.
-      */
-    def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK)
-
-    /**
-      * Creates a new game state object by putting a man in the given square and updating the
-      * information which player has to make the next move.
-      *
-      * ==Prerequisites==
-      * The squares below the square have to be occupied and the specified square has to be empty.
-      * However, both is not checked.
-      *
-      * @param square The mask that masks the respective square.
-      * @return The updated game state.
-      */
-    def makeMove(squareMask: Mask): This = {
-        newConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
-    }
-
-    /**
-      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
-      *
-      * Either returns:
-      *  - DRAWN (0l) if the game is finished (i.e., all squares are occupied), but no player has won.
-      *  - NOT_FINISHED (-1l) if no player has won so far and some squares are empty.
-      *  - a mask (some positive value >= 15 (00000....00001111)) that identifies the squares with
-      * 	the four connected men.
-      *
-      * ==Note==
-      * Every call to this method (re)analyses the board.
-      */
-    def determineState(): State = determineState(FLAT_ALL_MASKS_FOR_CONNECT4_CHECK)
-
-    /**
-      * Determines the state ([[de.tud.cs.stg.connect4.State]]) of the game given the last made move.
-      * The result is only well defined iff the game was not already finished before the last move.
-      *
-      * ==Note==
-      * Every call to this method (re)analyses the board.
-      */
-    def determineState(lastMove: Mask): State =
-        determineState(masksForConnect4CheckForSquare(squareId(lastMove)))
-
-    private def determineState(allMasks: Array[Mask]): State = {
-        // 1. check if we can find a line of four connected men related to the last move
-        val allMasksCount = allMasks.size
-        var m = 0
-        do {
-            val mask = allMasks(m)
-            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
-            m += 1
-        } while (m < allMasksCount)
-
-        // 2. check if the game is finished or not yet decided 
-        if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
-            State.Drawn
-        else
-            State.NotFinished
-    }
-
-    /**
-      * Scores a board by simply calculating the product of the square weights for each player and then
-      * subtracting these values. This scoring function is extremely fast.
-      */
-    def score(): Int = {
-        var whiteSquaresCount = 0
-        var blackSquaresCount = 0
-        var productOfSquareWeightsWhite: Long = 1l
-        var productOfSquareWeightsBlack: Long = 1l
-
-        // The following value is used to approximate the next move which is important if the number of men is 
-        // not equal and we want to avoid that the scoring is skewed (too much)
-        var bestSquareWeightOfNextMove: Int = 1
-
-        var col = 0
-        do {
-            var mask = 1l << col
-            var row = 0
-            do {
-                if (occupiedInfo.areEmpty(mask)) {
-                    val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
-                    if (squareWeight > bestSquareWeightOfNextMove)
-                        bestSquareWeightOfNextMove = squareWeight
-                    row = rows // => break                        
-                }
-                else {
-                    val sid = squareId(row, col)
-                    if (playerInfo.areWhite(mask)) {
-                        productOfSquareWeightsWhite += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
-                        whiteSquaresCount += 1
-                    }
-                    else {
-                        productOfSquareWeightsBlack += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
-                        blackSquaresCount += 1
-                    }
-                }
-                row += 1
-                mask = mask << cols
-            } while (row < rows)
-            col += 1
-        } while (col < cols)
-
-        (whiteSquaresCount - blackSquaresCount) match {
-            case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack + bestSquareWeightOfNextMove).toInt
-            case -1 ⇒ (productOfSquareWeightsWhite + bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
-            case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
-        }
-    }
-
-    /**
-      * Assesses the current board form the perspective of the current player. The value will be between
-      * -Int.MaxValue and Int.MaxValue. A positive value indicates that the current player has an
-      * advantage. A negative value indicates that the opponent has an advantage. If the value
-      * is (-)Int.MaxValue the current(opponent) player can/will win. If the value is 0 either the game is
-      * drawn or the ai was not able to determine if any player has an advantage.
-      *
-      * ==Precondition==
-      * Before the immediate last move the game was not already finished. I.e., the return value is
-      * not defined when the game was already won by a player before the last move.
-      *
-      * @param lastMove The last move that was made and which led to the current board.
-      * @param depth The remaining number of levels that should be explored.
-      * @param alpha The the best value that the current player can achieve (Initially -Int.MaxValue).
-      * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
-      */
-    protected[connect4] def negamax(
-        lastMove: Mask,
-        depth: Int,
-        alpha: Int,
-        beta: Int): Int = {
-        // The negamax algorithm is basically just a variant of the minimax algorithm. 
-        // I.e., we have a single negamax method instead of two separate `minValue` and `maxValue` methods.
-        // We can use the negamax algorithm because we have a zero-sum two player game where we strictly 
-        // alternate between the players and the evaluation function is symmetric. (max(a,b) = -min(-a,-b)).
-
-        // 1. check if the game is finished
-        val state = determineState(lastMove)
-        if (state.isDrawn) return 0
-        if (state.hasWinner /* <=> the player who made the last move has won */ ) return -Int.MaxValue
-
-        // 2. check if we have to abort exploring the search tree and have to assess the game state
-        if (depth <= 0) {
-            if (playerInfo.isWhitesTurn())
-                return score()
-            else
-                return -score()
-        }
-
-        // 3. performs a recursive call to this method to continue exploring the search tree
-        var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
-        val nextMoves = this.nextMoves()
-        var newAlpha = alpha
-        do { // for each legal move...
-            val nextMove: Mask = nextMoves.next
-            val value = evaluateMove(nextMove, depth - 1, -beta, -newAlpha)
-            if (value >= beta) {
-                // there will be no better move (we don't mind if there are other equally good moves)
-                return value;
-            }
-            if (value > valueOfBestMove) {
-                valueOfBestMove = value
-                if (value > newAlpha)
-                    newAlpha = value
-            }
-        } while (nextMoves.hasNext)
-        valueOfBestMove
-    }
-
-    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-        -(makeMove(nextMove).negamax(nextMove, depth, alpha, beta))
-    }
-
-    /**
-      * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
-      *
-      * @param aiStrength The strength of the ai. The strength determines the number of rounds the
-      *     the ai looks ahead; a round consists of one move by each player. It should be at least 3 for
-      *     a game that is not too easy.
-      */
-    def proposeMove(aiStrength: Int): Mask = {
-
-        val maxDepth = aiStrength * 2
-
-        val nextMoves = this.nextMoves()
-        var bestMove: Mask = -1l
-        var alpha = -Int.MaxValue
-        do { // for each legal move...
-            val nextMove: Mask = nextMoves.next()
-            val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
-
-            // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
-            // choose a move with a value that is equal to the value of a previously evaluated move, it
-            // could lead to a move that is actually advantageous for the opponent because a relevant part of
-            // the search true was cut. 
-            // Therefore, it is not directly possible to evaluate all equally good moves and we have to
-            // use ">" here instead of ">=".
-            if (value > alpha || bestMove == -1l) {
-                bestMove = nextMove
-                alpha = value
-            }
-        } while (nextMoves.hasNext)
-
-        if (alpha == -Int.MaxValue && aiStrength > 2)
-            // When the AI determines that it will always loose in the long run (when the opponent plays 
-            // perfectly) it may still be possible to prevent the opponent from winning immediately and
-            // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
-            // a meaningfull move, we simply reduce the number of levels we want to explore.
-            proposeMove(math.max(1, aiStrength - 2))
-        else
-            bestMove
-    }
-
-    /**
-      * Returns a human-readable representation of the board that is suitable for console output.
-      *
-      * E.g.
-      * <pre>
-      * 5      ◼
-      * 4      ○
-      * 3      ◼
-      * 2      ○   ○
-      * 1  ◼ ◼ ◼ ◼ ○
-      * 0  ○ ◼ ○ ◼ ○   ○
-      *
-      *    0 1 2 3 4 5 6
-      * </pre>
-      */
-    def boardToString(): String = {
-        // we have to start with the upper left-hand corner when generating a human-readable representation
-        var string = ""
-        for (r ← (0 to maxRowIndex).reverse) {
-            string += r+"  " // add the row index
-            for (c ← 0 to maxColIndex) {
-                val sid = squareId(r, c)
-                if (occupiedInfo.isOccupied(sid))
-                    string += playerInfo.belongsTo(sid).symbol+" "
-                else
-                    string += "  "
-            }
-            string += "\n"
-        }
-        string += "\n   "
-        // add column indexes 
-        for (c ← 0 until cols) string += c+" "
-        string
-    }
-
-    /**
-      * Returns a human readable representation of the current game state.
-      */
-    override def toString() = "Next Player: "+playerInfo.turnOf()+"\nBoard:\n"+boardToString
-
-}
-
 protected[connect4] class SimpleConnectFourGame protected[connect4] (
         board: Board,
         occupiedInfo: OccupiedInfo,

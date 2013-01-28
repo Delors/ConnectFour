@@ -49,8 +49,22 @@ object CLI extends scala.App {
     import java.lang.System.in
     import State._
 
+    private def readCharacterValue() = {
+        val value = in.read();
+        if (value != '\n') println
+        value
+    }
+
+    private def readIntValue(min: Int = 0, max: Int = 9, default: Int) = {
+        val value = readCharacterValue()
+        if (value >= '0' + min && value <= '0' + max)
+            value - '0'
+        else
+            default
+    }
+
     /**
-      * Starts a new game using the given connect four game.
+      * Starts a new game using the given connect four game as the basis.
       */
     def playGame(connectFourGame: ConnectFourGame, aiStrength: Int) {
         import connectFourGame._
@@ -58,8 +72,9 @@ object CLI extends scala.App {
         def playerMove(connectFourGame: ConnectFourGame, aiStrength: Int): (ConnectFourGame, State) = {
             val state = connectFourGame.determineState
             if (state.isNotFinished) {
-                println(connectFourGame);
-                { print("Choose column: "); val b = in.read(); println; b } match {
+                println(connectFourGame)
+                print("Choose column: ")
+                readCharacterValue() match {
                     case 'p' ⇒ { // let the ai make a proposal
                         val proposal = connectFourGame.column(connectFourGame.proposeMove(aiStrength))
                         println("\nProposal: "+proposal)
@@ -102,8 +117,12 @@ object CLI extends scala.App {
             }
         }
 
-        print("Do you want to start (y/n - Default: n)?"); val c = in.read(); println
-        (if (c == 'y') playerMove(connectFourGame, aiStrength) else aiMove(connectFourGame, aiStrength)) match {
+        print("Do you want to start (y/n - Default: n)?")
+        (if (readCharacterValue() == 'y')
+            playerMove(connectFourGame, aiStrength)
+        else
+            aiMove(connectFourGame, aiStrength)
+        ) match {
             case (_, NotFinished) ⇒ println("Game aborted.")
             case (_, Drawn)       ⇒ println("This game is drawn.")
             case (game, state) ⇒ {
@@ -116,26 +135,27 @@ object CLI extends scala.App {
 
     println("Welcome to connect four 2013!")
 
-    print("Number of rows [4..8](Default: 6; rows*columns <= 56)?"); val r = in.read(); println
-    print("Number of columns [4..8](Default: 7; rows*columns <= 56)?"); val c = in.read(); println
-    private val rows: Int = if (r >= '4' && r <= '8') r - '0' else 6
-    private val cols: Int = if (c >= '4' && c <= '8') c - '0' else 7
+    print("Number of rows [4..8](Default: 6; rows*columns <= 56)?")
+    private val rows: Int = readIntValue(min = 4, max = 8, default = 6)
+    print("Number of columns [4..8](Default: 7; rows*columns <= 56)?")
+    private val cols: Int = readIntValue(min = 4, max = 8, default = 7)
     private val board = new Board(rows, cols)
-    print("Output the search tree (g) or debug info (d)(Default: <None>)?"); val o = in.read(); println
+
+    print("Output the search tree (g) or debug info (d)(Default: <None>)?")
     private val connectFourGame =
-        o match {
+        readCharacterValue() match {
             //        case 'g' ⇒ new ConnectFour(board, false, true)
             case 'd' ⇒ ConnectFourGame withDebug (board)
             case _   ⇒ ConnectFourGame(board)
         }
 
     do { // main loop
-        print("Strength of the ai [1..9](Default: 3(weak))?"); val s = in.read(); println
-        var aiStrength: Int = if (s >= '1' && s <= '9') s - '0' else 3
+        print("Strength of the ai [1..8](Default: 4(weak))?")
+        var aiStrength: Int = readIntValue(1, 8, 4)
         println("The strength of the ai is set to "+aiStrength+".")
 
         playGame(connectFourGame, aiStrength)
-    } while ({ print("Do you want to play a game (Default: y)?"); val c = in.read(); println; c == 'y' })
+    } while ({ print("Do you want to play a game (Default: y)?"); readCharacterValue() == 'y' })
 
     println("Good Bye!")
 }
