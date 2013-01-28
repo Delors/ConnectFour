@@ -190,7 +190,7 @@ class OLDConnectFour(
         /**
           * True if all squares are occupied.
           */
-        def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK)
+        def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(topRowMask)
 
         /**
           * Creates a new game state object by putting a man in the given square and updating the
@@ -222,7 +222,7 @@ class OLDConnectFour(
 
         private def determineState(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
             // 1. check if we can find a line of four connected men
-            val allMasks = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK
+            val allMasks = masksForConnect4Check
             val allMasksCount = allMasks.size
             var m = 0
             do {
@@ -232,7 +232,7 @@ class OLDConnectFour(
             } while (m < allMasksCount)
 
             // 2. check if the game is finished or not yet decided 
-            if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
+            if (occupiedInfo.areOccupied(topRowMask))
                 State.Drawn
             else
                 State.NotFinished
@@ -258,7 +258,7 @@ class OLDConnectFour(
                 var row = 0
                 do {
                     if (occupiedInfo.areEmpty(mask)) {
-                        val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
+                        val squareWeight = squareWeights(squareId(row, col))
                         if (squareWeight > bestSquareWeightOfNextMove)
                             bestSquareWeightOfNextMove = squareWeight
                         row = rows // => break                        
@@ -266,11 +266,11 @@ class OLDConnectFour(
                     else {
                         val sid = squareId(row, col)
                         if (playerInfo.areWhite(mask)) {
-                            productOfSquareWeightsWhite += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
+                            productOfSquareWeightsWhite += squareWeights(sid) * essentialSquareWeights(sid)
                             whiteSquaresCount += 1
                         }
                         else {
-                            productOfSquareWeightsBlack += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
+                            productOfSquareWeightsBlack += squareWeights(sid) * essentialSquareWeights(sid)
                             blackSquaresCount += 1
                         }
                     }

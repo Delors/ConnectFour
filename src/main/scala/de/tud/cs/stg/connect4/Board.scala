@@ -68,24 +68,24 @@ class Board( final val rows: Int, final val cols: Int) {
     /**
       * Index of the square in the upper right-hand corner.
       */
-    final val MAX_SQUARE_INDEX: Int = squares - 1
+    final val maxSquareIndex: Int = squares - 1
 
     /**
       * The id of the upper left-hand square.
       */
-    final val UPPER_LEFT_SQUARE_INDEX: Int = (rows - 1) * cols
+    final val upperLeftSquareIndex: Int = (rows - 1) * cols
 
     /**
       * Masks the square in the upper left-hand corner.
       */
-    final val upperLeftSquareMask: Mask = 1l << UPPER_LEFT_SQUARE_INDEX
+    final val upperLeftSquareMask: Mask = 1l << upperLeftSquareIndex
 
     /**
       * Masks the squares in the top-level row of the board.
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    final val TOP_ROW_BOARD_MASK: Mask = (0l /: (UPPER_LEFT_SQUARE_INDEX until squares))(_ | 1l << _)
+    final val topRowMask: Mask = (0l /: (upperLeftSquareIndex until squares))(_ | 1l << _)
 
     /**
       * Array of the masks that mask all squares in a column. I.e., the first element of the array
@@ -98,7 +98,7 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_ROWS: Array[Array[Long]] = {
+    final val masksForConnect4CheckInRows: Array[Array[Long]] = {
         var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
         (for (r ← 0 to maxRowIndex) yield {
             val rowMasks = (for (c ← 0 to maxColIndex - 3) yield {
@@ -111,7 +111,7 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_COLS: Array[Array[Long]] = {
+    final val masksForConnect4CheckInCols: Array[Array[Long]] = {
         val initialMask = 1l | (1l << cols) | (1l << 2 * cols) | (1l << 3 * cols)
         (for (c ← 0 to maxColIndex) yield {
             var mask = initialMask << c
@@ -123,7 +123,7 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS: Array[Array[Long]] = {
+    final val masksForConnect4CheckInLLtoURDiagonals: Array[Array[Long]] = {
 
         def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols + 1) }
 
@@ -142,7 +142,7 @@ class Board( final val rows: Int, final val cols: Int) {
             var mask = (1l << startIndex | 1l << (startIndex + (cols + 1)) | 1l << (startIndex + 2 * (cols + 1)) | 1l << (startIndex + 3 * (cols + 1)))
             var currentIndex = startIndex
             var bitFields = List[Long]()
-            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+            while (idOfLastSquare(currentIndex) <= maxSquareIndex
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
                 bitFields = mask :: bitFields
                 currentIndex += (cols + 1)
@@ -152,7 +152,7 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
-    final val MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS: Array[Array[Long]] = {
+    final val masksForConnect4CheckInLRtoULDiagonals: Array[Array[Long]] = {
 
         def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols - 1) }
 
@@ -171,7 +171,7 @@ class Board( final val rows: Int, final val cols: Int) {
             var mask = (1l << startIndex | 1l << (startIndex + (cols - 1)) | 1l << (startIndex + 2 * (cols - 1)) | 1l << (startIndex + 3 * (cols - 1)))
             var currentIndex = startIndex
             var masks = List[Long]()
-            while (idOfLastSquare(currentIndex) <= MAX_SQUARE_INDEX
+            while (idOfLastSquare(currentIndex) <= maxSquareIndex
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
                 masks = mask :: masks
                 currentIndex += (cols - 1)
@@ -181,23 +181,23 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
-    final val ALL_MASKS_FOR_CONNECT4_CHECK: Array[Array[Array[Mask]]] = Array(
-        MASKS_FOR_CONNECT_4_CHECK_IN_ROWS,
-        MASKS_FOR_CONNECT_4_CHECK_IN_COLS,
-        MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS,
-        MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS
+    final val masksForConnect4CheckPerOrientation: Array[Array[Array[Mask]]] = Array(
+        masksForConnect4CheckInRows,
+        masksForConnect4CheckInCols,
+        masksForConnect4CheckInLLtoURDiagonals,
+        masksForConnect4CheckInLRtoULDiagonals
     )
 
-    final val FLAT_ALL_MASKS_FOR_CONNECT4_CHECK: Array[Mask] = ALL_MASKS_FOR_CONNECT4_CHECK.flatten.flatten
+    final val masksForConnect4Check: Array[Mask] = masksForConnect4CheckPerOrientation.flatten.flatten
 
     /**
       * Array[#SQUARES] of an array of masks that need to be considered in a connect four check if a men was
       * put in a specific square.
       */
     final val masksForConnect4CheckForSquare: Array[Array[Mask]] = {
-        (for (squareId ← (0 to MAX_SQUARE_INDEX)) yield {
+        (for (squareId ← (0 to maxSquareIndex)) yield {
             val filterMask: Long = 1l << squareId
-            val r = FLAT_ALL_MASKS_FOR_CONNECT4_CHECK.filter(mask ⇒ (mask & filterMask) != 0l).toArray
+            val r = masksForConnect4Check.filter(mask ⇒ (mask & filterMask) != 0l).toArray
             r
         }).toArray
     }
@@ -208,17 +208,17 @@ class Board( final val rows: Int, final val cols: Int) {
       * in the first column the third and fourth squares are essential. A player who does not get
       * hold of these two squares will never be able to get a line of four connected men in the first column.
       */
-    final val ALL_ESSENTIAL_SQUARES_MASKS: Array[Array[Mask]] =
-        ALL_MASKS_FOR_CONNECT4_CHECK.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
+    final val essentialSquareMasks: Array[Array[Mask]] =
+        masksForConnect4CheckPerOrientation.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
             (Long.MaxValue /: perLineMasks)(_ & _)
         )))
 
-    final val ESSENTIAL_SQUARE_WEIGHTS: Array[Int] = {
+    final val essentialSquareWeights: Array[Int] = {
         val squareWeights = new Array[Int](squares)
         for (squareId ← 0 to squares - 1) {
             var count = 0
             for (
-                masks ← ALL_ESSENTIAL_SQUARES_MASKS;
+                masks ← essentialSquareMasks;
                 mask ← masks if (mask & (1l << squareId)) != 0l
             ) {
                 count += 1
@@ -242,29 +242,27 @@ class Board( final val rows: Int, final val cols: Int) {
       *  4.. 6.. 8..10.. 8.. 6.. 4
       *  3.. 4.. 5.. 7.. 5.. 4.. 3
       */
-    final val SQUARE_WEIGHTS: Array[Int] = {
+    final val squareWeights: Array[Int] = {
         val squareWeights = new Array[Int](squares)
 
-        def evalBoardMask(boardMask: Long) {
+        def evalMask(mask: Mask) {
             (0 until squares).foreach((index) ⇒ {
-                if ((boardMask & (1l << index)) != 0l) squareWeights(index) += 1
+                if ((mask & (1l << index)) != 0l) squareWeights(index) += 1
             })
         }
 
-        def evalBoardMasks(boardMasks: Array[Array[Long]]) {
-            boardMasks.foreach(_.foreach(evalBoardMask(_)))
-        }
+        def evalMasks(masks: Array[Array[Long]]) { masks.foreach(_.foreach(evalMask(_))) }
 
-        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_COLS)
-        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_ROWS)
-        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_LL_TO_UR_DIAGONALS)
-        evalBoardMasks(MASKS_FOR_CONNECT_4_CHECK_IN_LR_TO_UL_DIAGONALS)
+        evalMasks(masksForConnect4CheckInCols)
+        evalMasks(masksForConnect4CheckInRows)
+        evalMasks(masksForConnect4CheckInLLtoURDiagonals)
+        evalMasks(masksForConnect4CheckInLRtoULDiagonals)
         squareWeights
     }
 
-    final val maxSquareWeight: Int = SQUARE_WEIGHTS.max
+    final val maxSquareWeight: Int = squareWeights.max
 
-    final val minSquareWeight: Int = SQUARE_WEIGHTS.min
+    final val minSquareWeight: Int = squareWeights.min
 
     /**
       * Returns the id of the square that has the given row and column indexes.
@@ -302,7 +300,7 @@ class Board( final val rows: Int, final val cols: Int) {
     }
 
     final def squareId(singleSquareMask: Mask): Int = {
-        var upperBound = MAX_SQUARE_INDEX
+        var upperBound = maxSquareIndex
         var lowerBound = 0
         var id = upperBound / 2;
         var value = (singleSquareMask >>> id)

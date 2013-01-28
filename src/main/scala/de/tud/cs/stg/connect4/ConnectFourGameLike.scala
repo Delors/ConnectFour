@@ -87,14 +87,13 @@ abstract class ConnectFourGameLike protected[connect4] (
             case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId
         })
 
-    def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK)
+    def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(topRowMask)
 
     def makeMove(squareMask: Mask): This = {
         newConnectFourGame(board, occupiedInfo.update(squareMask), playerInfo.update(squareMask))
     }
 
-    def determineState(): State =
-        determineState(FLAT_ALL_MASKS_FOR_CONNECT4_CHECK)
+    def determineState(): State = determineState(masksForConnect4Check)
 
     def determineState(lastMove: Mask): State =
         determineState(masksForConnect4CheckForSquare(squareId(lastMove)))
@@ -110,7 +109,7 @@ abstract class ConnectFourGameLike protected[connect4] (
         } while (m < allMasksCount)
 
         // 2. check if the game is finished or not yet decided 
-        if (occupiedInfo.areOccupied(TOP_ROW_BOARD_MASK))
+        if (occupiedInfo.areOccupied(topRowMask))
             State.Drawn
         else
             State.NotFinished
@@ -138,7 +137,7 @@ abstract class ConnectFourGameLike protected[connect4] (
             var row = 0
             do {
                 if (occupiedInfo.areEmpty(mask)) {
-                    val squareWeight = SQUARE_WEIGHTS(squareId(row, col))
+                    val squareWeight = squareWeights(squareId(row, col))
                     if (squareWeight > bestSquareWeightOfNextMove)
                         bestSquareWeightOfNextMove = squareWeight
                     row = rows // => break                        
@@ -146,11 +145,11 @@ abstract class ConnectFourGameLike protected[connect4] (
                 else {
                     val sid = squareId(row, col)
                     if (playerInfo.areWhite(mask)) {
-                        productOfSquareWeightsWhite += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
+                        productOfSquareWeightsWhite += squareWeights(sid) * essentialSquareWeights(sid)
                         whiteSquaresCount += 1
                     }
                     else {
-                        productOfSquareWeightsBlack += SQUARE_WEIGHTS(sid) * ESSENTIAL_SQUARE_WEIGHTS(sid)
+                        productOfSquareWeightsBlack += squareWeights(sid) * essentialSquareWeights(sid)
                         blackSquaresCount += 1
                     }
                 }
@@ -210,9 +209,9 @@ abstract class ConnectFourGameLike protected[connect4] (
         valueOfBestMove
     }
 
-    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = 
+    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int =
         -(makeMove(nextMove).negamax(nextMove, depth, alpha, beta))
-    
+
     def proposeMove(aiStrength: Int): Mask = {
 
         val maxDepth = aiStrength * 2
