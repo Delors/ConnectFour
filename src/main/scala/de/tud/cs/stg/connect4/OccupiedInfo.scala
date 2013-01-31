@@ -47,6 +47,8 @@ private[connect4] class OccupiedInfo(val board: Long) extends AnyVal {
     def update(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board | squareMask)
 
     def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask)
+    
+    def lastMoves(occupiedInfo : OccupiedInfo) : Mask = occupiedInfo.board ^ this.board
 }
 private[connect4] object OccupiedInfo {
     /**

@@ -144,7 +144,7 @@ object CLI extends scala.App {
     print("Output the search tree (g) or debug info (d)(Default: <None>)?")
     private val connectFourGame =
         readCharacterValue() match {
-            //        case 'g' ⇒ new ConnectFour(board, false, true)
+            case 'g' ⇒ ConnectFourGame withDotOutput (board)
             case 'd' ⇒ ConnectFourGame withDebug (board)
             case _   ⇒ ConnectFourGame(board)
         }

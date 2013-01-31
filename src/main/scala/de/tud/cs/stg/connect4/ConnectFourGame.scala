@@ -47,10 +47,10 @@ import scala.collection.mutable.Buffer
   * This is an implementation of the game "Connect Four" that uses the minimax algorithm to implement the
   * artificial intelligence.
   *
-  * This implementation is primarily used for teaching purposes (w.r.t. the minimax/negamax algorithm), but the
-  * ai is still strong enough to make it a reasonable opponent for a human player. However, the evaluation
-  * function to assess the game state can be considered trivial at best unless the board is extremely small
-  * (4x4) - in such a case the ai plays perfectly.
+  * This implementation is primarily used for teaching purposes (w.r.t. the minimax/negamax algorithm). To
+  * this end the default scoring function is very simple, but is still strong enough to make it a reasonable
+  * opponent for a human player. However, the evaluation function to assess the game state can be considered
+  * trivial at best unless the board is extremely small (4x4) - in such a case the ai plays perfectly.
   *
   * In the following we use the following terminology:
   *  - The game is always played by exactly two ''PLAYER''s on a ''BOARD'' that typically has 6 ''ROWS'' x
@@ -103,45 +103,150 @@ import scala.collection.mutable.Buffer
   * special bit masks and these masks are just matched (by means of the "&" operator)
   * against both long values to determine whether a certain player has won the game.
   *
+  * @param board The board on which the game will be played.
+  * @param score A function that scores a specific board. The value is positive if the white player has an
+  *     advantage and negative if the black player has an advantage. The value will be in the range
+  *     (-Int.MaxValue..Int.MaxValue) unless the white or the black player will definitively win. In that
+  *     case the value is either Int.MaxValue or -Int.MaxValue. The value Int.MinValue == -Int.MaxValue-1 is
+  *     reserved for internal purposes.
+  * @param playerInfo In combination with `occupiedInfo` encodes the information which player occupies a
+  *     square and also encodes the information which player has to make the next move.
+  * @param occupiedInfo Encodes which squares are occupied.
+  *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
-trait ConnectFourGame {
+class ConnectFourGame(
+        final val board: Board,
+        final val score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int,
+        final val occupiedInfo: OccupiedInfo = OccupiedInfo.create(),
+        final val playerInfo: PlayerInfo = PlayerInfo.create()) {
 
-    protected[connect4]type This <: ConnectFourGame
+    /**
+      * Iterates over the masks that select the squares where the current player is allowed to put its
+      * next man. We always start with the mask that selects the lowest free square in the middle column
+      * as this is often the most relevant one (move ordering).
+      */
+    def nextMoves(): scala.collection.Iterator[Mask] = nextMoves(this.occupiedInfo)
+
+    protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
+        new Iterator[Mask] {
+
+            private var col = (board.cols / 2) - 1
+            private var count = board.cols
+
+            private def advance() {
+                do {
+                    count -= 1
+                    col = (col + 1) % board.cols
+                } while (occupiedInfo.areOccupied(board.upperLeftSquareMask << col) && count >= 0)
+            }
+
+            advance()
+
+            def hasNext(): Boolean = count >= 0
+
+            def next(): Mask = {
+                val columnMask = board.columnMasks(col)
+                var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
+                var mask = {
+                    if (filteredOccupiedInfo.allSquaresEmpty)
+                        1l << col
+                    else
+                        (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << board.cols)
+                }
+                advance()
+                mask
+            }
+        }
+    }
+
+    /**
+      * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None`
+      * otherwise.
+      *
+      * ==Note==
+      * This method is not optimized and is therefore not intended to be used by the ai – it can, however,
+      * be used in an interactive game.
+      *
+      * @param column A valid column identifier ([0..MAX_COL_INDEX]).
+      * @return The id of the lowest square in the given column that is free.
+      */
+    def lowestFreeSquareInColumn(column: Int): Option[Int] =
+        (column to board.squares by board.cols) collectFirst ({
+            case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId
+        })
+
+    /**
+      * True if all squares of the board are occupied.
+      */
+    def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(board.topRowMask)
 
     /**
       * Creates a new ConnectFourGame object.
       */
-    protected[connect4] def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): This
+    protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+        new ConnectFourGame(board, score, occupiedInfo, playerInfo)
+    }
 
     /**
-      * The board on which the game will be played.
+      * Creates a new `ConnectFourGame` object by putting a man in the given square and updating the
+      * information which player has to make the next move.
+      *
+      * ==Prerequisites==
+      * The squares below the square have to be occupied and the specified square has to be empty.
+      * However, both is not checked.
+      *
+      * @param square The mask that masks the respective square.
+      * @return The updated game object.
       */
-    val board: Board
+    def makeMove(squareMask: Mask): ConnectFourGame = {
+        newConnectFourGame(occupiedInfo.update(squareMask), playerInfo.update(squareMask))
+    }
 
     /**
-      * Encodes which squares are occupied.
-      */
-    protected[connect4] val occupiedInfo: OccupiedInfo
-
-    /**
-      * In combination with `occupiedInfo` encodes the information which player occupies a square and also
-      * encodes the information which player has to make the next move.
-      */
-    protected[connect4] val playerInfo: PlayerInfo
-
-    /**
-      * Scores the current board. The value is positive if the white player has an advantage and
-      * negative if the black player has an advantage. The value will be in the range (-Int.MaxValue..
-      * Int.MaxValue) unless the white or the black player will definitively win. In that case the value is
-      * either Int.MaxValue or -Int.MaxValue.
+      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
+      *
+      * Either returns:
+      *  - DRAWN (0l) if the game is finished (i.e., all squares are occupied), but no player has won.
+      *  - NOT_FINISHED (-1l) if no player has won so far and some squares are empty.
+      *  - a mask (some positive value >= 15 (00000....00001111)) that identifies the squares with
+      *     the four connected men.
+      *
+      * The result is only well defined iff the game was not already finished before the last move.
       *
       * ==Note==
-      * The value Int.MinValue == -Int.MaxValue-1 is reserved for internal purposes.
-      *
-      * @return The score of the current board [-Int.MaxValue..Int.MaxValue].
+      * Every call to this method (re)analyses the board.
       */
-    def score(): Int
+    def determineState(): State = determineState(board.masksForConnect4Check, occupiedInfo, playerInfo)
+
+    /**
+      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) given the last move and a specific
+      * game situation.
+      *
+      * The result is only well defined iff the game was not already finished before the last move.
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the board given the last move
+      */
+    protected[connect4] def determineState(lastMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State =
+        determineState(board.masksForConnect4CheckForSquare(board.squareId(lastMove)), occupiedInfo, playerInfo)
+
+    protected[connect4] def determineState(allMasks: Array[Mask], occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
+        // 1. check if we can find a line of four connected men related to the last move
+        val allMasksCount = allMasks.size
+        var m = 0
+        do {
+            val mask = allMasks(m)
+            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
+            m += 1
+        } while (m < allMasksCount)
+
+        // 2. check if the game is finished or not yet decided 
+        if (occupiedInfo.areOccupied(board.topRowMask))
+            State.Drawn
+        else
+            State.NotFinished
+    }
 
     /**
       * Assesses the current board form the perspective of the current player. The value will be between
@@ -163,82 +268,64 @@ trait ConnectFourGame {
       * @param alpha The best value that the current player can achieve (Initially -Int.MaxValue).
       * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
       */
-    protected[connect4] def negamax(lastMove: Mask, depth: Int, alpha: Int, beta: Int): Int
+    protected[connect4] def negamax(
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo,
+        lastMove: Mask,
+        depth: Int,
+        alpha: Int,
+        beta: Int): Int = {
+        // The negamax algorithm is basically just a variant of the minimax algorithm. 
+        // I.e., we have a single negamax method instead of two separate `minValue` and `maxValue` methods.
+        // We can use the negamax algorithm because we have a zero-sum two player game where we strictly 
+        // alternate between the players and the evaluation function is symmetric. (max(a,b) = -min(-a,-b)).
+
+        // 1. check if the game is finished
+        val state = determineState(lastMove, occupiedInfo, playerInfo)
+        if (state.isDrawn) return 0
+        if (state.hasWinner /* <=> the player who made the last move has won */ ) return -Int.MaxValue
+
+        // 2. check if we have to abort exploring the search tree and have to assess the game state
+        if (depth <= 0) {
+            if (playerInfo.isWhitesTurn())
+                return score(board, occupiedInfo, playerInfo)
+            else
+                return -score(board, occupiedInfo, playerInfo)
+        }
+
+        // 3. performs a recursive call to this method to continue exploring the search tree
+        var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
+        val nextMoves = this.nextMoves(occupiedInfo)
+        var newAlpha = alpha
+        do { // for each legal move...
+            val nextMove: Mask = nextMoves.next
+            val value = evaluateMove(nextMove, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha)
+            if (value >= beta) {
+                // there will be no better move (we don't mind if there are other equally good moves)
+                return value;
+            }
+            if (value > valueOfBestMove) {
+                valueOfBestMove = value
+                if (value > newAlpha)
+                    newAlpha = value
+            }
+        } while (nextMoves.hasNext)
+        valueOfBestMove
+    }
+
+    protected[connect4] def evaluateMove(nextMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo, depth: Int, alpha: Int, beta: Int): Int = {
+        -negamax(occupiedInfo.update(nextMove), playerInfo.update(nextMove), nextMove, depth, alpha, beta)
+    }
 
     /**
-      * Creates a new `ConnectFourGame` object and initializes it with the updated board.
+      * Evaluates the given move w.r.t. the current game state.
       *
       * ==Note==
-      * This method was introduced as a hook to enable subclasses to intercept calls to `negamax` which
-      * are generally not called on this object but on the new `ConnectFourGame` object which encapsulates
-      * the updated game state.
+      * This method was introduced as a hook to enable subclasses to intercept the initial call to `negamax`.
       */
-    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
-
-    /**
-      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) of the game.
-      *
-      * Either returns:
-      *  - DRAWN (0l) if the game is finished (i.e., all squares are occupied), but no player has won.
-      *  - NOT_FINISHED (-1l) if no player has won so far and some squares are empty.
-      *  - a mask (some positive value >= 15 (00000....00001111)) that identifies the squares with
-      *     the four connected men.
-      *
-      * The result is only well defined iff the game was not already finished before the last move.
-      *
-      * ==Note==
-      * Every call to this method (re)analyses the board.
-      */
-    def determineState(): State
-
-    /**
-      * Determines the current state ([[de.tud.cs.stg.connect4.State]]) given the last move. This method is
-      * generally more efficient than the parameter-less `determineState` method.
-      *
-      * The result is only well defined iff the game was not already finished before the last move.
-      *
-      * ==Note==
-      * Every call to this method (re)analyses the board given the last move
-      */
-    def determineState(lastMove: Mask): State
-
-    /**
-      * True if all squares of the board are occupied.
-      */
-    def allSquaresOccupied(): Boolean
-
-    /**
-      * Iterates over the masks that select the squares where the current player is allowed to put its
-      * next man. We always start with the mask that selects the lowest free square in the middle column
-      * as this is often the most relevant one (move ordering).
-      */
-    def nextMoves(): scala.collection.Iterator[Mask]
-
-    /**
-      * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None`
-      * otherwise.
-      *
-      * ==Note==
-      * This method is not optimized and is therefore not intended to be used by the ai – it can, however,
-      * be used in an interactive game.
-      *
-      * @param column A valid column identifier ([0..MAX_COL_INDEX]).
-      * @return The id of the lowest square in the given column that is free.
-      */
-    def lowestFreeSquareInColumn(column: Int): Option[Int]
-
-    /**
-      * Creates a new `ConnectFourGame` object by putting a man in the given square and updating the
-      * information which player has to make the next move.
-      *
-      * ==Prerequisites==
-      * The squares below the square have to be occupied and the specified square has to be empty.
-      * However, both is not checked.
-      *
-      * @param square The mask that masks the respective square.
-      * @return The updated game object.
-      */
-    def makeMove(squareMask: Mask): This
+    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+        -negamax(occupiedInfo.update(nextMove), playerInfo.update(nextMove), nextMove, depth, alpha, beta)
+    }
 
     /**
       * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
@@ -247,7 +334,38 @@ trait ConnectFourGame {
       *     the ai looks ahead; a round consists of one move by each player. The `aiStrength` should be at
       *     least 3 for a game that is not too easy.
       */
-    def proposeMove(aiStrength: Int): Mask
+    def proposeMove(aiStrength: Int): Mask = {
+
+        val maxDepth = aiStrength * 2
+
+        val nextMoves = this.nextMoves()
+        var bestMove: Mask = -1l
+        var alpha = -Int.MaxValue
+        do { // for each legal move...
+            val nextMove: Mask = nextMoves.next()
+            val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
+
+            // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
+            // choose a move with a value that is equal to the value of a previously evaluated move, it
+            // could lead to a move that is actually advantageous for the opponent because a relevant part of
+            // the search true was cut. 
+            // Therefore, it is not directly possible to evaluate all equally good moves and we have to
+            // use ">" here instead of ">=".
+            if (value > alpha || bestMove == -1l) {
+                bestMove = nextMove
+                alpha = value
+            }
+        } while (nextMoves.hasNext)
+
+        if (alpha == -Int.MaxValue && aiStrength > 2)
+            // When the AI determines that it will always loose in the long run (when the opponent plays 
+            // perfectly) it may still be possible to prevent the opponent from winning immediately and
+            // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
+            // a meaningfull move, we simply reduce the number of levels we want to explore.
+            proposeMove(math.max(1, aiStrength - 2))
+        else
+            bestMove
+    }
 
     /**
       * Returns a human-readable representation of the board that is suitable for console output.
@@ -264,135 +382,164 @@ trait ConnectFourGame {
       *    0 1 2 3 4 5 6
       * </pre>
       */
-    def boardToString(): String
-
-}
-
-trait Debug extends ConnectFourGame {
-
-    protected[connect4]type This <: ConnectFourGame with Debug
-
-    protected[connect4] var initialSearchDepth: Int
-
-    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-        val score = super.evaluateMove(nextMove, depth, alpha, beta)
-
-        if (initialSearchDepth - 1 == depth) {
-            val LOST = -Int.MaxValue
-            val WON = Int.MaxValue
-            println("Move: "+board.column(nextMove)+" => "+
-                {
-                    score match {
-                        case `WON`  ⇒ "will win"
-                        case `LOST` ⇒ "will loose"
-                        case v      ⇒ String.valueOf(v)+" (better if larger than a previous move)"
-                    }
-                }
-            )
+    def boardToString(): String = {
+        // we have to start with the upper left-hand corner when generating a human-readable representation
+        var string = ""
+        for (r ← (0 to board.maxRowIndex).reverse) {
+            string += r+"  " // add the row index
+            for (c ← 0 to board.maxColIndex) {
+                val sid = board.squareId(r, c)
+                if (occupiedInfo.isOccupied(sid))
+                    string += playerInfo.belongsTo(sid).symbol+" "
+                else
+                    string += "  "
+            }
+            string += "\n"
         }
-        score
+        string += "\n   "
+        // add column indexes 
+        for (c ← 0 until board.cols) string += c+" "
+        string
     }
 
-    abstract override def proposeMove(aiStrength: Int): Mask = {
-        initialSearchDepth = aiStrength * 2
-        super.proposeMove(aiStrength)
-    }
+    /**
+      * Returns a human readable representation of the current game state suitable for debugging purposes.
+      */
+    override def toString() = "Next Player: "+playerInfo.turnOf()+"\nBoard:\n"+boardToString
+
 }
 
-//trait DotOutput extends ConnectFourGame {
-//
-//    protected[connect4]type This <: ConnectFourGame with DotOutput
-//
-//    protected[connect4] var initialSearchDepth: Int
-//
-//    protected[connect4] var nodeLabel: String
-//
-//    protected[connect4] var bestScore: Int
-//
-//    protected[connect4] abstract override def negamax(lastMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-//        super.negamax(lastMove,depth,alpha,beta)
-//    }
-//    
-//    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-//        val score = super.evaluateMove(nextMove, depth, alpha, beta)
-//        if (score > bestScore)
-//            bestScore = score;
-//        score
-//    }
-//
-//    abstract override def proposeMove(aiStrength: Int): Mask = {
-//        nodeLabel = ""
-//        bestScore = Int.MinValue
-//        initialSearchDepth = aiStrength * 2
-//
-//        println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
-//        val mask = super.proposeMove(aiStrength)
-//        println("\"root\" [label="+bestScore+"];\n}")
-//        mask
-//    }
-//
-//}
-
-
-/**
-  * Factory to create Connect Four games for specific boards.
-  */
 object ConnectFourGame {
 
-    def apply(board: Board) = {
-		class SimpleConnectFourGame(
-		        board: Board,
-		        occupiedInfo: OccupiedInfo,
-		        playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
-		
-		    type This = SimpleConnectFourGame
-		
-		    final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
-		        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
-		    }
-		}
-		
-        new SimpleConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create())
-    }
+    def apply(
+        board: Board,
+        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) =
+        new ConnectFourGame(board, score)
 
-    def withDebug(board: Board) = {
-        class DebugConnectFourGame protected[connect4] (
-            board: Board,
-            occupiedInfo: OccupiedInfo,
-            playerInfo: PlayerInfo,
-            var initialSearchDepth: Int = Int.MaxValue)
-                extends ConnectFourGameLike(board, occupiedInfo, playerInfo)
-                with Debug {
-            Game ⇒
+    def withDebug(board: Board,
+                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
 
-            type This = DebugConnectFourGame
+        class DebugConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
+                extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
 
-            final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): DebugConnectFourGame = {
-                new DebugConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
+            override protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+                new DebugConnectFourGame(occupiedInfo, playerInfo)
+            }
+
+            override protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+                val score = super.evaluateMove(nextMove, depth, alpha, beta)
+
+                val LOST = -Int.MaxValue
+                val WON = Int.MaxValue
+                println("Move: "+board.column(nextMove)+" => "+
+                    {
+                        score match {
+                            case `WON`  ⇒ "will win"
+                            case `LOST` ⇒ "will loose"
+                            case v      ⇒ String.valueOf(v)+" (better if larger than a previous move)"
+                        }
+                    }
+                )
+
+                score
             }
         }
 
-        new DebugConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
+        new DebugConnectFourGame(OccupiedInfo.create(), PlayerInfo.create())
     }
-    
-//    def withDotOutput(board : Board) = {
-//        class DotOutputConnectFourGame protected[connect4] (
-//            board: Board,
-//            occupiedInfo: OccupiedInfo,
-//            playerInfo: PlayerInfo,
-//            var initialSearchDepth: Int = Int.MaxValue)
-//                extends ConnectFourGameLike(board, occupiedInfo, playerInfo)
-//                with DotOutput {
-//            Game ⇒
-//
-//            type This = DotOutputConnectFourGame
-//
-//            final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): DotOutputConnectFourGame = {
-//                new DotOutputConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
-//            }
-//        }
-//
-//        new DotOutputConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
-//    }
+
+    def withDotOutput(board: Board,
+                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
+
+        class ConnectFourGameWithDotOutput(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
+                extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
+
+            override protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+                new ConnectFourGameWithDotOutput(occupiedInfo, playerInfo)
+            }
+
+            private var currentNodeLabel: String = _
+
+            override protected[connect4] def evaluateMove(nextMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo, depth: Int, alpha: Int, beta: Int): Int = {
+                val oldLabel = currentNodeLabel
+                currentNodeLabel += String.valueOf(board.column(nextMove))+"↓"
+                println("\""+oldLabel+"\" -> "+"\""+currentNodeLabel+"\";")
+                val score = super.evaluateMove(nextMove, occupiedInfo, playerInfo, depth, alpha, beta)
+                println("\""+currentNodeLabel+"\" [label=\"{alpha="+(alpha)+"|beta="+(beta)+"| v("+currentNodeLabel+")="+(score)+"}\"];")
+                currentNodeLabel = oldLabel
+
+                score
+            }
+
+            override protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+                currentNodeLabel = String.valueOf(board.column(nextMove))+"↓"
+                val score = super.evaluateMove(nextMove, depth, alpha, beta)
+                println("\"root\" -> "+"\""+currentNodeLabel+"\";")
+                println("\""+currentNodeLabel+"\" [label=\"{alpha="+(alpha)+"|beta="+(beta)+"| v("+currentNodeLabel+")="+(score)+"}\"];")
+                
+                score
+            }
+
+            override def proposeMove(aiStrength: Int): Mask = {
+                println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
+                val value = super.proposeMove(aiStrength)
+                println("\"root\" [label="+value+"];\n}")
+                value
+            }
+        }
+
+        new ConnectFourGameWithDotOutput(OccupiedInfo.create(), PlayerInfo.create())
+    }
+
+    /**
+      * Scores a board by considering the weight of the squares occupied by each player. This scoring
+      * function is extremely fast.
+      */
+    def score(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
+        var whiteSquaresCount = 0
+        var blackSquaresCount = 0
+        var productOfSquareWeightsWhite: Long = 1l
+        var productOfSquareWeightsBlack: Long = 1l
+
+        // The following value is used to approximate the next move which is important if the number of men is 
+        // not equal and we want to avoid that the scoring is skewed (too much)
+        var bestSquareWeightOfNextMove: Int = 1
+
+        var col = 0
+        do {
+            var mask = 1l << col
+            var row = 0
+            do {
+                if (occupiedInfo.areEmpty(mask)) {
+                    val squareWeight = board.squareWeights(board.squareId(row, col))
+                    if (squareWeight > bestSquareWeightOfNextMove)
+                        bestSquareWeightOfNextMove = squareWeight
+                    row = board.rows // => break                        
+                }
+                else {
+                    val sid = board.squareId(row, col)
+                    if (playerInfo.areWhite(mask)) {
+                        productOfSquareWeightsWhite += board.squareWeights(sid) * board.essentialSquareWeights(sid)
+                        whiteSquaresCount += 1
+                    }
+                    else {
+                        productOfSquareWeightsBlack += board.squareWeights(sid) * board.essentialSquareWeights(sid)
+                        blackSquaresCount += 1
+                    }
+                }
+                row += 1
+                mask = mask << board.cols
+            } while (row < board.rows)
+            col += 1
+        } while (col < board.cols)
+
+        (whiteSquaresCount - blackSquaresCount) match {
+            case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack + bestSquareWeightOfNextMove).toInt
+            case -1 ⇒ (productOfSquareWeightsWhite + bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
+            case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
+        }
+    }
+
 }
+
 

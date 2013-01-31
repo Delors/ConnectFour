@@ -97,7 +97,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         makeMove(1l << 3).makeMove(1l << 1).
         makeMove(1l << 4).makeMove(1l << 2).
         makeMove(1l << 5)
-
+ println(bWhiteCanWin.boardToString)
     //
     // TESTS
     //
@@ -169,22 +169,22 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         it("if the black player has three men in a line that can be completed to a line of four connected "+
             "men then the ai should put a man in the square that prevents the black player from "+
             "(immediately) winning") {
-            -bBlackCanWin.makeMove(1l << 11).negamax(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bBlackCanWin.makeMove(1l << 12).negamax(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bBlackCanWin.makeMove(1l << 13).negamax(1l << 13, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(1l << 13, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
 
             bBlackCanWin.proposeMove(2) should be(1l << 24)
         }
 
         it("if the white player has three men in a line which can be completed to a line of four connected "+
             "men the ai should make the move that prevents the white player from (immediately) winning") {
-            -bWhiteCanWin.makeMove(1l << 0).negamax(1l << 0, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 8).negamax(1l << 8, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 9).negamax(1l << 9, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 10).negamax(1l << 10, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 11).negamax(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 12).negamax(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            -bWhiteCanWin.makeMove(1l << 6).negamax(1l << 6, 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
+            bWhiteCanWin.evaluateMove(1l << 0, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 8, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 9, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 10, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(1l << 6, 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
 
             bWhiteCanWin.proposeMove(3) should be(1l << 6)
             bWhiteCanWin.proposeMove(2) should be(1l << 6)
