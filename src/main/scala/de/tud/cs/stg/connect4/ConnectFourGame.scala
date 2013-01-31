@@ -169,9 +169,9 @@ trait ConnectFourGame {
       * Creates a new `ConnectFourGame` object and initializes it with the updated board.
       *
       * ==Note==
-      * This method was introduced as a hook to enable subclasses to intercept calls to the `negamax` which
+      * This method was introduced as a hook to enable subclasses to intercept calls to `negamax` which
       * are generally not called on this object but on the new `ConnectFourGame` object which encapsulates
-      * the updated game logic.
+      * the updated game state.
       */
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int
 
@@ -309,6 +309,10 @@ trait Debug extends ConnectFourGame {
 //
 //    protected[connect4] var bestScore: Int
 //
+//    protected[connect4] abstract override def negamax(lastMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+//        super.negamax(lastMove,depth,alpha,beta)
+//    }
+//    
 //    protected[connect4] abstract override def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
 //        val score = super.evaluateMove(nextMove, depth, alpha, beta)
 //        if (score > bestScore)
@@ -328,17 +332,7 @@ trait Debug extends ConnectFourGame {
 //    }
 //
 //}
-protected[connect4] class SimpleConnectFourGame protected[connect4] (
-        board: Board,
-        occupiedInfo: OccupiedInfo,
-        playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
 
-    type This = SimpleConnectFourGame
-
-    final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
-        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
-    }
-}
 
 /**
   * Factory to create Connect Four games for specific boards.
@@ -346,6 +340,18 @@ protected[connect4] class SimpleConnectFourGame protected[connect4] (
 object ConnectFourGame {
 
     def apply(board: Board) = {
+		class SimpleConnectFourGame(
+		        board: Board,
+		        occupiedInfo: OccupiedInfo,
+		        playerInfo: PlayerInfo) extends ConnectFourGameLike(board, occupiedInfo, playerInfo) {
+		
+		    type This = SimpleConnectFourGame
+		
+		    final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): SimpleConnectFourGame = {
+		        new SimpleConnectFourGame(board, occupiedInfo, playerInfo)
+		    }
+		}
+		
         new SimpleConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create())
     }
 
@@ -368,5 +374,25 @@ object ConnectFourGame {
 
         new DebugConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
     }
+    
+//    def withDotOutput(board : Board) = {
+//        class DotOutputConnectFourGame protected[connect4] (
+//            board: Board,
+//            occupiedInfo: OccupiedInfo,
+//            playerInfo: PlayerInfo,
+//            var initialSearchDepth: Int = Int.MaxValue)
+//                extends ConnectFourGameLike(board, occupiedInfo, playerInfo)
+//                with DotOutput {
+//            Game ⇒
+//
+//            type This = DotOutputConnectFourGame
+//
+//            final def newConnectFourGame(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): DotOutputConnectFourGame = {
+//                new DotOutputConnectFourGame(board, occupiedInfo, playerInfo, Game.initialSearchDepth)
+//            }
+//        }
+//
+//        new DotOutputConnectFourGame(board, OccupiedInfo.create(), PlayerInfo.create(), Int.MaxValue)
+//    }
 }
 
