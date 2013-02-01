@@ -85,7 +85,7 @@ object CLI extends scala.App {
                     }
                     case c if c >= '0' && c < ('0' + connectFourGame.cols) ⇒ {
                         connectFourGame.lowestFreeSquareInColumn(c - '0') match {
-                            case Some(squareId) ⇒ return aiMove(connectFourGame.makeMove(1l << squareId), aiStrength: Int)
+                            case Some(squareId) ⇒ return aiMove(connectFourGame.makeMove(Mask.forSquare(squareId)), aiStrength: Int)
                             case _              ⇒ println("The column has no empty square.")
                         }
                     }
@@ -155,7 +155,7 @@ object CLI extends scala.App {
         println("The strength of the ai is set to "+aiStrength+".")
 
         playGame(connectFourGame, aiStrength)
-    } while ({ print("Do you want to play a game (Default: y)?"); readCharacterValue() == 'y' })
+    } while ({ print("Do you want to play a game (y/n) (Default: n)?"); readCharacterValue() == 'y' })
 
     println("Good Bye!")
 }

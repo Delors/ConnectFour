@@ -138,7 +138,7 @@ class ConnectFourGame(
                 do {
                     count -= 1
                     col = (col + 1) % board.cols
-                } while (occupiedInfo.areOccupied(board.upperLeftSquareMask << col) && count >= 0)
+                } while (occupiedInfo.areOccupied(Mask(board.upperLeftSquareMask.value << col)) && count >= 0)
             }
 
             advance()
@@ -150,9 +150,9 @@ class ConnectFourGame(
                 var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
                 var mask = {
                     if (filteredOccupiedInfo.allSquaresEmpty)
-                        1l << col
+                        Mask(1l << col)
                     else
-                        (filteredOccupiedInfo.board ^ columnMask) & (filteredOccupiedInfo.board << board.cols)
+                        Mask((filteredOccupiedInfo.board ^ columnMask.value) & (filteredOccupiedInfo.board << board.cols))
                 }
                 advance()
                 mask
@@ -339,7 +339,7 @@ class ConnectFourGame(
         val maxDepth = aiStrength * 2
 
         val nextMoves = this.nextMoves()
-        var bestMove: Mask = -1l
+        var bestMove: Mask = Mask.Illegal
         var alpha = -Int.MaxValue
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next()
@@ -351,7 +351,7 @@ class ConnectFourGame(
             // the search true was cut. 
             // Therefore, it is not directly possible to evaluate all equally good moves and we have to
             // use ">" here instead of ">=".
-            if (value > alpha || bestMove == -1l) {
+            if (value > alpha || bestMove == Mask.Illegal) {
                 bestMove = nextMove
                 alpha = value
             }
@@ -409,6 +409,11 @@ class ConnectFourGame(
 
 }
 
+/**
+  * Factory to create specific types of Connect Four games.
+  *
+  * @author Michael Eichberg
+  */
 object ConnectFourGame {
 
     def apply(
@@ -476,7 +481,7 @@ object ConnectFourGame {
                 val score = super.evaluateMove(nextMove, depth, alpha, beta)
                 println("\"root\" -> "+"\""+currentNodeLabel+"\";")
                 println("\""+currentNodeLabel+"\" [label=\"{alpha="+(alpha)+"|beta="+(beta)+"| v("+currentNodeLabel+")="+(score)+"}\"];")
-                
+
                 score
             }
 
@@ -507,7 +512,7 @@ object ConnectFourGame {
 
         var col = 0
         do {
-            var mask = 1l << col
+            var mask = Mask.forSquare(col)
             var row = 0
             do {
                 if (occupiedInfo.areEmpty(mask)) {
@@ -528,7 +533,7 @@ object ConnectFourGame {
                     }
                 }
                 row += 1
-                mask = mask << board.cols
+                mask = board.moveUpByOneRow(mask)
             } while (row < board.rows)
             col += 1
         } while (col < board.cols)

@@ -94,11 +94,4 @@ package object connect4 {
 
     implicit def connectFourToBoard(connectFourGame: ConnectFourGame): Board = connectFourGame.board
 
-    /**
-      * Specifies that the respective long value is a bit mask to get information about which squares
-      * are occupied and – if so – by which player. The range of valid values depends on the concrete size of
-      * the board. However, it is always a value between 1 (mask for the square in the lower left-hand corner)
-      * and 2^56 in case of a board with seven(eight) rows and eight(seven) columns.
-      */
-    type Mask = Long
 }

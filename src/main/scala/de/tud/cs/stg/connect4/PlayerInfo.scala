@@ -32,7 +32,7 @@
  */
 package de.tud.cs.stg.connect4
 
-private[connect4] class PlayerInfo(val playerInfo: Long) extends AnyVal {
+class PlayerInfo private (val playerInfo: Long) extends AnyVal {
 
     def isWhite(squareId: Int): Boolean = (playerInfo & (1l << squareId)) == 0l
 
@@ -44,25 +44,27 @@ private[connect4] class PlayerInfo(val playerInfo: Long) extends AnyVal {
       */
     def belongsTo(squareId: Int): Player = Player((playerInfo >>> squareId) & 1l)
 
-    def areWhite(squareMask: Mask): Boolean = (playerInfo & squareMask) == 0l
+    def areWhite(squareMask: Mask): Boolean = (playerInfo & squareMask.value) == 0l
 
-    def areBlack(squareMask: Mask): Boolean = (playerInfo & squareMask) == squareMask
+    def areBlack(squareMask: Mask): Boolean = (playerInfo & squareMask.value) == squareMask.value
 
     /**
       * Returns the player that occupies the squares identified by the given mask.
       * If not all squares are occupied by the same player `None` is returned.
       * The result is only defined iff all identified squares are occupied.
       */
-    def belongTo(squareMask: Mask): Option[Player] =
-        playerInfo & squareMask match {
-            case `squareMask` ⇒ Some(Player.Black)
-            case 0l           ⇒ Some(Player.White)
-            case _            ⇒ None
+    def belongTo(squareMask: Mask): Option[Player] = {
+        val mask = squareMask.value
+        playerInfo & mask match {
+            case `mask` ⇒ Some(Player.Black)
+            case 0l     ⇒ Some(Player.White)
+            case _      ⇒ None
         }
+    }
 
     def belongToSamePlayer(squareMask: Mask): Boolean = {
-        val filteredPlayerInfo = playerInfo & squareMask
-        return filteredPlayerInfo == 0l || filteredPlayerInfo == squareMask
+        val filteredPlayerInfo = playerInfo & squareMask.value
+        return filteredPlayerInfo == 0l || filteredPlayerInfo == squareMask.value
     }
 
     def isWhitesTurn(): Boolean = (playerInfo >>> 63) == 0l
@@ -75,7 +77,7 @@ private[connect4] class PlayerInfo(val playerInfo: Long) extends AnyVal {
         if ((playerInfo >>> 63) == 0l)
             new PlayerInfo(playerInfo | 1l << 63)
         else
-            new PlayerInfo((playerInfo | squareMask) & Long.MaxValue)
+            new PlayerInfo((playerInfo | squareMask.value) & Long.MaxValue)
 
 }
 
@@ -84,7 +86,7 @@ private[connect4] class PlayerInfo(val playerInfo: Long) extends AnyVal {
   *
   * @author Michael Eichberg
   */
-private[connect4] object PlayerInfo {
+object PlayerInfo {
 
     /**
       * Creates a new player info object. The current player; i.e., the player that has to make the next

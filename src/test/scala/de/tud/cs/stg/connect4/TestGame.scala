@@ -38,7 +38,7 @@ import org.scalatest._
 import org.scalatest.matchers._
 
 /**
-  * Basic tests of the game logic and the ai.
+  * Basic tests of the game logic and the artificial intelligence.
   *
   * @author Michael Eichberg
   */
@@ -50,23 +50,23 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     //
 
     val b0 = ConnectFourGame(Board6x7)
-    val b1 = b0.makeMove(1l << 4) // White
-    val b2 = b1.makeMove(1l << 3) // Black
-    val b3 = b2.makeMove(1l << 2) // White
-    val b4 = b3.makeMove(1l << (2 + b0.cols * 1)) // Black
-    val b5 = b4.makeMove(1l << (2 + b0.cols * 2)) // White
-    val b6 = b5.makeMove(1l << (2 + b0.cols * 3)) // Black
-    val b7 = b6.makeMove(1l << (2 + b0.cols * 4)) // White
-    val b8 = b7.makeMove(1l << (2 + b0.cols * 5)) // Black
-    val b9 = b8.makeMove(1l) // White
-    val b10 = b9.makeMove(1l << (7)) // Black
-    val b11 = b10.makeMove(1l << (11)) // White
-    val b12 = b11.makeMove(1l << (1)) // Black
-    val b13 = b12.makeMove(1l << (18)) // White
-    val b14 = b13.makeMove(1l << (10)) // Black
-    val bWHITEWins = b14.makeMove(1l << (25)) // White
-    val b15 = b14.makeMove(1l << (6)) // White
-    val bBLACKWins = b15.makeMove(1l << (8)) // Black
+    val b1 = b0.makeMove(Mask.forSquare(4)) // White
+    val b2 = b1.makeMove(Mask.forSquare(3)) // Black
+    val b3 = b2.makeMove(Mask.forSquare(2)) // White
+    val b4 = b3.makeMove(Mask.forSquare(2 + b0.cols * 1)) // Black
+    val b5 = b4.makeMove(Mask.forSquare(2 + b0.cols * 2)) // White
+    val b6 = b5.makeMove(Mask.forSquare(2 + b0.cols * 3)) // Black
+    val b7 = b6.makeMove(Mask.forSquare(2 + b0.cols * 4)) // White
+    val b8 = b7.makeMove(Mask.forSquare(2 + b0.cols * 5)) // Black
+    val b9 = b8.makeMove(Mask.forSquare(0)) // White
+    val b10 = b9.makeMove(Mask.forSquare(7)) // Black
+    val b11 = b10.makeMove(Mask.forSquare(11)) // White
+    val b12 = b11.makeMove(Mask.forSquare(1)) // Black
+    val b13 = b12.makeMove(Mask.forSquare(18)) // White
+    val b14 = b13.makeMove(Mask.forSquare(10)) // Black
+    val bWHITEWins = b14.makeMove(Mask.forSquare(25)) // White
+    val b15 = b14.makeMove(Mask.forSquare(6)) // White
+    val bBLACKWins = b15.makeMove(Mask.forSquare(8)) // Black
 
     //Next Player: WHITE
     //Board:
@@ -79,9 +79,9 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     //
     //   0 1 2 3 4 5 6 
     val bBlackCanWin = b0.
-        makeMove(1l << 4).makeMove(1l << 3).
-        makeMove(1l << 5).makeMove(1l << 10).
-        makeMove(1l << 6).makeMove(1l << 17)
+        makeMove(Mask.forSquare(4)).makeMove(Mask.forSquare(3)).
+        makeMove(Mask.forSquare(5)).makeMove(Mask.forSquare(10)).
+        makeMove(Mask.forSquare(6)).makeMove(Mask.forSquare(17))
 
     //Next Player: BLACK
     //Board:
@@ -94,10 +94,10 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
     //
     //   0 1 2 3 4 5 6     
     val bWhiteCanWin = b0.
-        makeMove(1l << 3).makeMove(1l << 1).
-        makeMove(1l << 4).makeMove(1l << 2).
-        makeMove(1l << 5)
- println(bWhiteCanWin.boardToString)
+        makeMove(Mask.forSquare(3)).makeMove(Mask.forSquare(1)).
+        makeMove(Mask.forSquare(4)).makeMove(Mask.forSquare(2)).
+        makeMove(Mask.forSquare(5))
+
     //
     // TESTS
     //
@@ -121,11 +121,13 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         }
 
         it("on an empty board the set of legal moves are those that put a man in a square in the lowest row") {
-            b0.nextMoves.toSet should be(Set(1l, 1l << 1, 1l << 2, 1l << 3, 1l << 4, 1l << 5, 1l << 6))
+            val squaresOfLegalMoves = Set(0, 1, 2, 3, 4, 5, 6)
+            b0.nextMoves.toSet should be(squaresOfLegalMoves.map(Mask.forSquare(_)))
+            //b0.nextMoves.map(_.value).toSet should be(Set(1l, 1l << 1, 1l << 2, 1l << 3, 1l << 4, 1l << 5, 1l << 6))
         }
 
         it("legal moves are always those that put a man above an occupied square as long as a column is not full") {
-            b9.nextMoves.toSet should be(Set(
+            b9.nextMoves.map(_.value).toSet should be(Set(
                 1l << 7 /*col 1*/ ,
                 1l << 1 /*col 2*/ ,
                 /*col 3 is full*/
@@ -156,39 +158,39 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
 
         it("a player wins the game if the player has four connected men in a column") {
             val result = bWHITEWins.determineState
-            result.getMask should be((1l << 4 | 1l << 11 | 1l << 18 | 1l << 25))
+            result.getMask should be(Mask.forSquares(4, 11, 18, 25))
             bWHITEWins.playerInfo.belongTo(result.getMask) should be(Some(Player.White))
         }
 
         it("a player wins the game if the player has four connected men in a row") {
             val result = bBLACKWins.determineState
-            result.getMask should be((1l << 7 | 1l << 8 | 1l << 9 | 1l << 10))
+            result.getMask.value should be((1l << 7 | 1l << 8 | 1l << 9 | 1l << 10))
             bBLACKWins.playerInfo.belongTo(result.getMask) should be(Some(Player.Black))
         }
 
         it("if the black player has three men in a line that can be completed to a line of four connected "+
             "men then the ai should put a man in the square that prevents the black player from "+
             "(immediately) winning") {
-            bBlackCanWin.evaluateMove(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bBlackCanWin.evaluateMove(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bBlackCanWin.evaluateMove(1l << 13, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(Mask.forSquare(13), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
 
-            bBlackCanWin.proposeMove(2) should be(1l << 24)
+            Board6x7.squareId(bBlackCanWin.proposeMove(2)) should be(24)
         }
 
         it("if the white player has three men in a line which can be completed to a line of four connected "+
             "men the ai should make the move that prevents the white player from (immediately) winning") {
-            bWhiteCanWin.evaluateMove(1l << 0, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 8, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 9, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 10, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 11, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 12, 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(1l << 6, 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
+            bWhiteCanWin.evaluateMove(Mask.forSquare(0), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(8), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(9), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(10), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(Mask.forSquare(6), 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
 
-            bWhiteCanWin.proposeMove(3) should be(1l << 6)
-            bWhiteCanWin.proposeMove(2) should be(1l << 6)
-            bWhiteCanWin.proposeMove(1) should be(1l << 6)
+            bWhiteCanWin.proposeMove(3) should be(Mask.forSquare(6))
+            bWhiteCanWin.proposeMove(2) should be(Mask.forSquare(6))
+            bWhiteCanWin.proposeMove(1) should be(Mask.forSquare(6))
         }
 
         it("the better ai should win the game") {
@@ -201,7 +203,7 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
                     if (ng.determineState.hasWinner) return ng;
                     g = ng.makeMove(ng.proposeMove(playerBStrength))
                 } while (!g.determineState.isFinished)
-                fail("the game was won by the weak ai("+playerAStrength+" vs. "+playerBStrength+")")
+                fail("The game was won by the weak ai("+playerAStrength+" vs. "+playerBStrength+"):\n"+g.boardToString)
             }
 
             //println(playGame(2, 1))

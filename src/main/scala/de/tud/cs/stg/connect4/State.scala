@@ -74,7 +74,7 @@ class State private (val state: Long) extends AnyVal {
       *
       * The return value is only defined iff this game has a winner.
       */
-    def getMask: Mask = state
+    def getMask: Mask = Mask(state)
 }
 
 /**
@@ -91,7 +91,7 @@ object State {
       *     has to be – if SQ is the number of squares of the board – between 15 (1l|1l<<1|1l<<2|1l<<3) and
       *     1l<<(SQ-4)|1l<<(SQ-3)|1l<<(SQ-2)|1l<<(SQ-1). ''This requirement is not checked at runtime.''
       */
-    def apply(mask: Mask): State = new State(mask)
+    def apply(mask: Mask): State = new State(mask.value)
 
     /**
       * The game is not finished. I.e., no player has won and some squares are still empty.

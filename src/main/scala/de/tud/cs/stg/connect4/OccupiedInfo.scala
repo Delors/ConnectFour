@@ -32,7 +32,7 @@
  */
 package de.tud.cs.stg.connect4
 
-private[connect4] class OccupiedInfo(val board: Long) extends AnyVal {
+class OccupiedInfo private (val board: Long) extends AnyVal {
 
     def allSquaresEmpty(): Boolean = board == 0l
 
@@ -40,17 +40,17 @@ private[connect4] class OccupiedInfo(val board: Long) extends AnyVal {
 
     def isOccupied(squareId: Int): Boolean = (board & (1l << squareId)) != 0l
 
-    def areEmpty(squareMask: Mask): Boolean = (board & squareMask) == 0l
+    def areEmpty(squareMask: Mask): Boolean = (board & squareMask.value) == 0l
 
-    def areOccupied(squareMask: Mask): Boolean = (board & squareMask) == squareMask
+    def areOccupied(squareMask: Mask): Boolean = (board & squareMask.value) == squareMask.value
 
-    def update(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board | squareMask)
+    def update(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board | squareMask.value)
 
-    def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask)
-    
-    def lastMoves(occupiedInfo : OccupiedInfo) : Mask = occupiedInfo.board ^ this.board
+    def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask.value)
+
+    def lastMoves(occupiedInfo: OccupiedInfo): Mask = Mask(occupiedInfo.board ^ this.board)
 }
-private[connect4] object OccupiedInfo {
+object OccupiedInfo {
     /**
       * Creates a new `OccupiedInfo` object where all squares are empty.
       */

@@ -78,14 +78,14 @@ class Board( final val rows: Int, final val cols: Int) {
     /**
       * Masks the square in the upper left-hand corner.
       */
-    final val upperLeftSquareMask: Mask = 1l << upperLeftSquareIndex
+    final val upperLeftSquareMask: Mask = Mask.forSquare(upperLeftSquareIndex)
 
     /**
       * Masks the squares in the top-level row of the board.
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    final val topRowMask: Mask = (0l /: (upperLeftSquareIndex until squares))(_ | 1l << _)
+    final val topRowMask: Mask = (Mask.Empty /: (upperLeftSquareIndex until squares))(_ combine Mask.forSquare(_))
 
     /**
       * Array of the masks that mask all squares in a column. I.e., the first element of the array
@@ -94,36 +94,36 @@ class Board( final val rows: Int, final val cols: Int) {
     final val columnMasks: Array[Mask] = {
         val mask = (1l /: (1 to rows))((v, r) ⇒ (v | (1l << (r * cols))))
         (for (col ← 0 to maxColIndex) yield {
-            mask << col
+            Mask(mask << col)
         }).toArray
     }
 
-    final val masksForConnect4CheckInRows: Array[Array[Long]] = {
+    final val masksForConnect4CheckInRows: Array[Array[Mask]] = {
         var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
         (for (r ← 0 to maxRowIndex) yield {
             val rowMasks = (for (c ← 0 to maxColIndex - 3) yield {
                 val currentMask = mask
                 mask = mask << 1
-                currentMask
+                Mask(currentMask)
             }).toArray
             mask = mask << 3
             rowMasks
         }).toArray
     }
 
-    final val masksForConnect4CheckInCols: Array[Array[Long]] = {
+    final val masksForConnect4CheckInCols: Array[Array[Mask]] = {
         val initialMask = 1l | (1l << cols) | (1l << 2 * cols) | (1l << 3 * cols)
         (for (c ← 0 to maxColIndex) yield {
             var mask = initialMask << c
             (for (r ← 0 to maxRowIndex - 3) yield {
                 val currentMask = mask
                 mask = mask << cols
-                currentMask
+                Mask(currentMask)
             }).toArray
         }).toArray
     }
 
-    final val masksForConnect4CheckInLLtoURDiagonals: Array[Array[Long]] = {
+    final val masksForConnect4CheckInLLtoURDiagonals: Array[Array[Mask]] = {
 
         def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols + 1) }
 
@@ -139,20 +139,20 @@ class Board( final val rows: Int, final val cols: Int) {
         }
 
         (for (startIndex ← startIndexes) yield {
-            var mask = (1l << startIndex | 1l << (startIndex + (cols + 1)) | 1l << (startIndex + 2 * (cols + 1)) | 1l << (startIndex + 3 * (cols + 1)))
+            var currentMask = (1l << startIndex | 1l << (startIndex + (cols + 1)) | 1l << (startIndex + 2 * (cols + 1)) | 1l << (startIndex + 3 * (cols + 1)))
             var currentIndex = startIndex
-            var bitFields = List[Long]()
+            var masks = List[Mask]()
             while (idOfLastSquare(currentIndex) <= maxSquareIndex
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
-                bitFields = mask :: bitFields
+                masks = Mask(currentMask) :: masks
                 currentIndex += (cols + 1)
-                mask = mask << (cols + 1)
+                currentMask = currentMask << (cols + 1)
             }
-            bitFields.reverse.toArray
+            masks.reverse.toArray
         }).toArray
     }
 
-    final val masksForConnect4CheckInLRtoULDiagonals: Array[Array[Long]] = {
+    final val masksForConnect4CheckInLRtoULDiagonals: Array[Array[Mask]] = {
 
         def idOfLastSquare(squareID: Int) = { squareID + 3 * (cols - 1) }
 
@@ -168,14 +168,14 @@ class Board( final val rows: Int, final val cols: Int) {
         }
 
         (for (startIndex ← startIndexes) yield {
-            var mask = (1l << startIndex | 1l << (startIndex + (cols - 1)) | 1l << (startIndex + 2 * (cols - 1)) | 1l << (startIndex + 3 * (cols - 1)))
+            var currentMask = (1l << startIndex | 1l << (startIndex + (cols - 1)) | 1l << (startIndex + 2 * (cols - 1)) | 1l << (startIndex + 3 * (cols - 1)))
             var currentIndex = startIndex
-            var masks = List[Long]()
+            var masks = List[Mask]()
             while (idOfLastSquare(currentIndex) <= maxSquareIndex
                 && (row(idOfLastSquare(currentIndex)) - row(currentIndex)) == 3) {
-                masks = mask :: masks
+                masks = Mask(currentMask) :: masks
                 currentIndex += (cols - 1)
-                mask = mask << (cols - 1)
+                currentMask = currentMask << (cols - 1)
             }
             masks.reverse.toArray
         }).toArray
@@ -196,8 +196,8 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final val masksForConnect4CheckForSquare: Array[Array[Mask]] = {
         (for (squareId ← (0 to maxSquareIndex)) yield {
-            val filterMask: Long = 1l << squareId
-            val r = masksForConnect4Check.filter(mask ⇒ (mask & filterMask) != 0l).toArray
+            val filterMask: Mask = Mask.forSquare(squareId)
+            val r = masksForConnect4Check.filter(mask ⇒ mask.areSet(filterMask)).toArray
             r
         }).toArray
     }
@@ -210,7 +210,7 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final val essentialSquareMasks: Array[Array[Mask]] =
         masksForConnect4CheckPerOrientation.map(perOrientationMasks ⇒ perOrientationMasks.map(perLineMasks ⇒ (
-            (Long.MaxValue /: perLineMasks)(_ & _)
+            (Mask.selectAll(squares) /: perLineMasks)(_ intersect _)
         )))
 
     final val essentialSquareWeights: Array[Int] = {
@@ -219,7 +219,7 @@ class Board( final val rows: Int, final val cols: Int) {
             var count = 0
             for (
                 masks ← essentialSquareMasks;
-                mask ← masks if (mask & (1l << squareId)) != 0l
+                mask ← masks if mask.isSet(squareId)
             ) {
                 count += 1
             }
@@ -247,11 +247,11 @@ class Board( final val rows: Int, final val cols: Int) {
 
         def evalMask(mask: Mask) {
             (0 until squares).foreach((index) ⇒ {
-                if ((mask & (1l << index)) != 0l) squareWeights(index) += 1
+                if (mask.isSet(index)) squareWeights(index) += 1
             })
         }
 
-        def evalMasks(masks: Array[Array[Long]]) { masks.foreach(_.foreach(evalMask(_))) }
+        def evalMasks(masks: Array[Array[Mask]]) { masks.foreach(_.foreach(evalMask(_))) }
 
         evalMasks(masksForConnect4CheckInCols)
         evalMasks(masksForConnect4CheckInRows)
@@ -292,7 +292,7 @@ class Board( final val rows: Int, final val cols: Int) {
       */
     final def column(mask: Mask): Int = {
         for (col ← 0 to maxColIndex) {
-            if ((mask & columnMasks(col)) == mask) return col
+            if (mask.isSubset(columnMasks(col))) return col
         }
         throw new IllegalArgumentException(
             "the mask:\n"+maskToString(mask)+"\nidentifies squares in several columns"
@@ -303,7 +303,7 @@ class Board( final val rows: Int, final val cols: Int) {
         var upperBound = maxSquareIndex
         var lowerBound = 0
         var id = upperBound / 2;
-        var value = (singleSquareMask >>> id)
+        var value = (singleSquareMask.value >>> id)
         while (value != 1l) {
             if (value > 0) {
                 lowerBound = id + 1
@@ -312,10 +312,12 @@ class Board( final val rows: Int, final val cols: Int) {
                 upperBound = id - 1
             }
             id = (upperBound + lowerBound) / 2
-            value = (singleSquareMask >>> id)
+            value = (singleSquareMask.value >>> id)
         }
         id
     }
+    
+    final def moveUpByOneRow(mask : Mask) : Mask = Mask(mask.value << cols)
 
     /**
       * Creates a human-readable representation of the given mask.
@@ -323,11 +325,8 @@ class Board( final val rows: Int, final val cols: Int) {
       * Masks are generally used to analyze a board's state; i.e, which fields are occupied by which player.
       */
     def maskToString(mask: Mask): String = {
-        // Tests if the square with given id is set in the given mask.
-        def isSet(mask: Long, squareId: Int) = (mask & (1l << squareId)) != 0l
-
         (for (r ← (0 to maxRowIndex).reverse) yield {
-            (0 to maxColIndex).map((c) ⇒ if (isSet(mask, squareId(r, c))) "1 " else "0 ").mkString
+            (0 to maxColIndex).map((c) ⇒ if (mask.isSet(squareId(r, c))) "1 " else "0 ").mkString
         }).mkString("\n")
     }
 
