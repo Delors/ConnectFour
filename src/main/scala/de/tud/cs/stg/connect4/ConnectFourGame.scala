@@ -123,11 +123,15 @@ class ConnectFourGame(
 
     /**
       * Iterates over the masks that select the squares where the current player is allowed to put its
-      * next man. We always start with the mask that selects the lowest free square in the middle column
+      * next man. We always start with the mask that selects the lowest free square in the "middle column"
       * as this is often the most relevant one (move ordering).
       */
     def nextMoves(): scala.collection.Iterator[Mask] = nextMoves(this.occupiedInfo)
 
+    /**
+      * Iterator that returns the masks that selects the squares where the current player is allowed to put
+      * its next man.
+      */
     protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
 
@@ -221,7 +225,7 @@ class ConnectFourGame(
 
     /**
       * Determines the current state ([[de.tud.cs.stg.connect4.State]]) given the last move and a specific
-      * game situation.
+      * game state.
       *
       * The result is only well defined iff the game was not already finished before the last move.
       *
@@ -231,6 +235,14 @@ class ConnectFourGame(
     protected[connect4] def determineState(lastMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State =
         determineState(board.masksForConnect4CheckForSquare(board.squareId(lastMove)), occupiedInfo, playerInfo)
 
+    /**
+      * Determines the state of the game given the game state encoded by `occpuiedInfo` and  `playerInfo`.
+      *
+      * The result is only well defined iff the game was not already finished before the last move.
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the board given the last move
+      */
     protected[connect4] def determineState(allMasks: Array[Mask], occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
         // 1. check if we can find a line of four connected men related to the last move
         val allMasksCount = allMasks.size
@@ -250,23 +262,26 @@ class ConnectFourGame(
 
     /**
       * Assesses the current board form the perspective of the current player. The value will be between
-      * -Int.MaxValue and Int.MaxValue. A positive value indicates that the current player has an
+      * `-Int.MaxValue` and `Int.MaxValue`. A positive value indicates that the current player has an
       * advantage. A negative value indicates that the opponent has an advantage. If the value
-      * is (-)Int.MaxValue the current(opponent) player can/will win. If the value is 0 either the game is
+      * is (-)Int.MaxValue the current(opponent) player can/will win. If the value is 0 the game is
       * drawn or the ai was not able to determine if any player has an advantage.
       *
       * Subclasses are explicitly allowed to implement ''fail-soft alpha-beta pruning''. Hence, two moves
       * that are rated equally are not necessarily equally good when the second move was evaluated given
-      * some alpha-beta bounds.
+      * some specific alpha-beta bounds.
       *
       * ==Precondition==
       * Before the immediate last move the game was not already finished. I.e., the return value is
       * not defined when the game was already won by a player before the last move.
       *
-      * @param lastMove The last move that was made and which led to the current board.
+      * @param occupiedInfo The information which squares are currently occupied.
+      * @param playerInfo The information which player occupies a specific square if the square is occupied at
+      * 	all.
+      * @param lastMove The last move that was made and which led to the current game state.
       * @param depth The remaining number of levels of the search tree that should be explored.
-      * @param alpha The best value that the current player can achieve (Initially -Int.MaxValue).
-      * @param beta The best value that the opponent can achieve (Initially Int.MaxValue).
+      * @param alpha The best value that the current player can achieve (Initially `-Int.MaxValue`).
+      * @param beta The best value that the opponent can achieve (Initially `Int.MaxValue`).
       */
     protected[connect4] def negamax(
         occupiedInfo: OccupiedInfo,
@@ -283,7 +298,7 @@ class ConnectFourGame(
         // 1. check if the game is finished
         val state = determineState(lastMove, occupiedInfo, playerInfo)
         if (state.isDrawn) return 0
-        if (state.hasWinner /* <=> the player who made the last move has won */ ) return -Int.MaxValue
+        if (state.hasWinner /* <=> the player who made the last move has won */ ) return ConnectFourGame.Lost
 
         // 2. check if we have to abort exploring the search tree and have to assess the game state
         if (depth <= 0) {
@@ -313,7 +328,21 @@ class ConnectFourGame(
         valueOfBestMove
     }
 
-    protected[connect4] def evaluateMove(nextMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo, depth: Int, alpha: Int, beta: Int): Int = {
+    /**
+      * Evaluates the given move w.r.t. the given game state. This method is used by the `negamax` when
+      * exploring the search tree.
+      *
+      * ==Note==
+      * This method was introduced as a hook to enable subclasses to intercept recursive calls to `negamax`.
+      */
+    protected[connect4] def evaluateMove(
+        nextMove: Mask,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo,
+        depth: Int,
+        alpha: Int,
+        beta: Int): Int = {
+
         -negamax(occupiedInfo.update(nextMove), playerInfo.update(nextMove), nextMove, depth, alpha, beta)
     }
 
@@ -410,37 +439,67 @@ class ConnectFourGame(
 }
 
 /**
-  * Factory to create specific types of Connect Four games.
+  * Factory object to create specific types of Connect Four games.
   *
   * @author Michael Eichberg
   */
 object ConnectFourGame {
 
+    /**
+      * Value returned by the `negamax`/`evaluateMove` method if the current player has lost the game.
+      */
+    protected[connect4] final val Lost = -Int.MaxValue
+
+    /**
+      * Value returned by the `negamax`/`evaluateMove` method if the current player has won the game.
+      */
+    protected[connect4] final val Won = Int.MaxValue
+
+    /**
+      * Creates a `Connect Four` game to play games on the given board with the given scoring function.
+      *
+      * @param board The board used for playing connect four.
+      * @param score The scoring function that will be used to score the leaf-nodes of the search tree that
+      * 	are not final states.
+      */
     def apply(
         board: Board,
         score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) =
         new ConnectFourGame(board, score)
 
+    /**
+      * Creates a `Connect Four` game that prints out some debugging information.
+      *
+      * @param board The board used for playing connect four.
+      * @param score The scoring function that will be used to score the leaf-nodes of the search tree that
+      * 	are not final states.
+      */
     def withDebug(board: Board,
                   score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
 
         class DebugConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
 
-            override protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+            override protected[connect4] def newConnectFourGame(
+                occupiedInfo: OccupiedInfo,
+                playerInfo: PlayerInfo): ConnectFourGame = {
+
                 new DebugConnectFourGame(occupiedInfo, playerInfo)
             }
 
-            override protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+            override protected[connect4] def evaluateMove(
+                nextMove: Mask,
+                depth: Int,
+                alpha: Int,
+                beta: Int): Int = {
+
                 val score = super.evaluateMove(nextMove, depth, alpha, beta)
 
-                val LOST = -Int.MaxValue
-                val WON = Int.MaxValue
                 println("Move: "+board.column(nextMove)+" => "+
                     {
                         score match {
-                            case `WON`  ⇒ "will win"
-                            case `LOST` ⇒ "will loose"
+                            case `Won`  ⇒ "will win"
+                            case `Lost` ⇒ "will loose"
                             case v      ⇒ String.valueOf(v)+" (better if larger than a previous move)"
                         }
                     }
@@ -453,34 +512,77 @@ object ConnectFourGame {
         new DebugConnectFourGame(OccupiedInfo.create(), PlayerInfo.create())
     }
 
+    /**
+      * Creates a `Connect Four` game that always prints out the search tree using Graphviz's Dot language.
+      *
+      * @param board The board used for playing connect four.
+      * @param score The scoring function that will be used to score the leaf-nodes of the search tree that
+      * 	are not final states.
+      */
     def withDotOutput(board: Board,
                       score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
 
         class ConnectFourGameWithDotOutput(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
 
-            override protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+            override protected[connect4] def newConnectFourGame(
+                occupiedInfo: OccupiedInfo,
+                playerInfo: PlayerInfo) = {
+
                 new ConnectFourGameWithDotOutput(occupiedInfo, playerInfo)
             }
 
             private var currentNodeLabel: String = _
 
-            override protected[connect4] def evaluateMove(nextMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo, depth: Int, alpha: Int, beta: Int): Int = {
+            override protected[connect4] def evaluateMove(
+                nextMove: Mask,
+                occupiedInfo: OccupiedInfo,
+                playerInfo: PlayerInfo,
+                depth: Int,
+                alpha: Int,
+                beta: Int): Int = {
+
                 val oldLabel = currentNodeLabel
                 currentNodeLabel += String.valueOf(board.column(nextMove))+"↓"
                 println("\""+oldLabel+"\" -> "+"\""+currentNodeLabel+"\";")
                 val score = super.evaluateMove(nextMove, occupiedInfo, playerInfo, depth, alpha, beta)
-                println("\""+currentNodeLabel+"\" [label=\"{alpha="+(alpha)+"|beta="+(beta)+"| v("+currentNodeLabel+")="+(score)+"}\"];")
+                println(
+                    "\""+
+                        currentNodeLabel+
+                        "\" [label=\"{alpha="+
+                        (alpha)+
+                        "|beta="+
+                        (beta)+
+                        "| v("+
+                        currentNodeLabel+
+                        ")="+(score)+
+                        "}\"];")
                 currentNodeLabel = oldLabel
 
                 score
             }
 
-            override protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+            override protected[connect4] def evaluateMove(
+                nextMove: Mask,
+                depth: Int,
+                alpha: Int,
+                beta: Int): Int = {
+
                 currentNodeLabel = String.valueOf(board.column(nextMove))+"↓"
                 val score = super.evaluateMove(nextMove, depth, alpha, beta)
                 println("\"root\" -> "+"\""+currentNodeLabel+"\";")
-                println("\""+currentNodeLabel+"\" [label=\"{alpha="+(alpha)+"|beta="+(beta)+"| v("+currentNodeLabel+")="+(score)+"}\"];")
+                println(
+                    "\""+
+                        currentNodeLabel+
+                        "\" [label=\"{alpha="+
+                        (alpha)+
+                        "|beta="+
+                        (beta)+
+                        "| v("+
+                        currentNodeLabel+
+                        ")="+
+                        (score)+
+                        "}\"];")
 
                 score
             }
@@ -498,13 +600,16 @@ object ConnectFourGame {
 
     /**
       * Scores a board by considering the weight of the squares occupied by each player. This scoring
-      * function is extremely fast.
+      * function is extremely simple and fast.
       */
     def score(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
+
+        import board._
+
         var whiteSquaresCount = 0
         var blackSquaresCount = 0
-        var productOfSquareWeightsWhite: Long = 1l
-        var productOfSquareWeightsBlack: Long = 1l
+        var squareWeightsWhite: Long = 1l
+        var squareWeightsBlack: Long = 1l
 
         // The following value is used to approximate the next move which is important if the number of men is 
         // not equal and we want to avoid that the scoring is skewed (too much)
@@ -516,7 +621,7 @@ object ConnectFourGame {
             var row = 0
             do {
                 if (occupiedInfo.areEmpty(mask)) {
-                    val squareWeight = board.squareWeights(board.squareId(row, col))
+                    val squareWeight = squareWeights(board.squareId(row, col))
                     if (squareWeight > bestSquareWeightOfNextMove)
                         bestSquareWeightOfNextMove = squareWeight
                     row = board.rows // => break                        
@@ -524,11 +629,11 @@ object ConnectFourGame {
                 else {
                     val sid = board.squareId(row, col)
                     if (playerInfo.areWhite(mask)) {
-                        productOfSquareWeightsWhite += board.squareWeights(sid) * board.essentialSquareWeights(sid)
+                        squareWeightsWhite += squareWeights(sid) * essentialSquareWeights(sid)
                         whiteSquaresCount += 1
                     }
                     else {
-                        productOfSquareWeightsBlack += board.squareWeights(sid) * board.essentialSquareWeights(sid)
+                        squareWeightsBlack += squareWeights(sid) * essentialSquareWeights(sid)
                         blackSquaresCount += 1
                     }
                 }
@@ -539,9 +644,9 @@ object ConnectFourGame {
         } while (col < board.cols)
 
         (whiteSquaresCount - blackSquaresCount) match {
-            case 1  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack + bestSquareWeightOfNextMove).toInt
-            case -1 ⇒ (productOfSquareWeightsWhite + bestSquareWeightOfNextMove - productOfSquareWeightsBlack).toInt
-            case _  ⇒ (productOfSquareWeightsWhite - productOfSquareWeightsBlack).toInt
+            case 1  ⇒ (squareWeightsWhite - squareWeightsBlack + bestSquareWeightOfNextMove).toInt
+            case -1 ⇒ (squareWeightsWhite + bestSquareWeightOfNextMove - squareWeightsBlack).toInt
+            case _  ⇒ (squareWeightsWhite - squareWeightsBlack).toInt
         }
     }
 

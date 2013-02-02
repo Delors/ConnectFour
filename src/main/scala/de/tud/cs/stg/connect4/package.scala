@@ -37,16 +37,16 @@ import scala.language.implicitConversions
 /**
   * Implementation of "Connect Four" (cf. [[http://en.wikipedia.org/wiki/Connect_Four Wikipedia: Connect Four]])
   * using the minimax algorithm as the foundation for the implementation of the artificial intelligence.
-  * (More precisely, the negamax algorithm, which is a variant of the mini-max algorithm, is implemented.)
+  * (More precisely, the negamax algorithm, which is a variant of the minimax algorithm, is implemented.)
   *
   * ==Relevant Classes==
-  * The game logic is implemented by the class [[de.tud.cs.stg.connect4.ConnectFourGameLike]] which is
+  * The game logic is implemented by the class [[de.tud.cs.stg.connect4.ConnectFourGame]] which is
   * independent of any specific user interface.
   *
   * A basic command-line interface is implemented by the class [[de.tud.cs.stg.connect4.ui.CLI]].
   *
   * ==Implementation==
-  * In general, care was taken to make sure that the implementation is reasonable efficient w.r.t. the
+  * In general, care was taken to make sure that the implementation is reasonably efficient w.r.t. the
   * memory usage as well as the overall runtime performance. To that end, the complete game state is encoded
   * using two long values. The encoding was done such that is efficient to check for lines of four connected
   * men as well as to update the game state.

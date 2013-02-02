@@ -76,7 +76,7 @@ class Board( final val rows: Int, final val cols: Int) {
     final val upperLeftSquareIndex: Int = (rows - 1) * cols
 
     /**
-      * Masks the square in the upper left-hand corner.
+      * Masks the square in the upper left-hand corner of the board.
       */
     final val upperLeftSquareMask: Mask = Mask.forSquare(upperLeftSquareIndex)
 
@@ -88,7 +88,9 @@ class Board( final val rows: Int, final val cols: Int) {
     final val topRowMask: Mask = (Mask.Empty /: (upperLeftSquareIndex until squares))(_ combine Mask.forSquare(_))
 
     /**
-      * Array of the masks that mask all squares in a column. I.e., the first element of the array
+      * Array of masks that mask all squares in a column.
+      *
+      * I.e., the first element of the array
       * contains a mask that masks all squares in the first column (index 0).
       */
     final val columnMasks: Array[Mask] = {
@@ -98,6 +100,12 @@ class Board( final val rows: Int, final val cols: Int) {
         }).toArray
     }
 
+    /**
+      * Array of an array of all masks that mask a possible line of four connected men per row.
+      *
+      * I.e., the first element of the outer array contains an array that stores all masks that identify a
+      * possible line of four connected men in the 0th row.
+      */
     final val masksForConnect4CheckInRows: Array[Array[Mask]] = {
         var mask = 15l // = 1111 (BINARY); i.e., mask for the four squares in the lower left-hand corner  
         (for (r ← 0 to maxRowIndex) yield {
@@ -316,8 +324,8 @@ class Board( final val rows: Int, final val cols: Int) {
         }
         id
     }
-    
-    final def moveUpByOneRow(mask : Mask) : Mask = Mask(mask.value << cols)
+
+    final def moveUpByOneRow(mask: Mask): Mask = Mask(mask.value << cols)
 
     /**
       * Creates a human-readable representation of the given mask.

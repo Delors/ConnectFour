@@ -50,8 +50,8 @@ package de.tud.cs.stg.connect4
 class Mask private (val value: Long) extends AnyVal {
 
     def combine(other: Mask): Mask = new Mask(this.value | other.value)
-    
-    def intersect(other : Mask) : Mask = new Mask(this.value & other.value)
+
+    def intersect(other: Mask): Mask = new Mask(this.value & other.value)
 
     def isSet(squareId: Int): Boolean = (value & (1l << squareId)) != 0l
 
@@ -74,15 +74,24 @@ class Mask private (val value: Long) extends AnyVal {
   */
 object Mask {
 
-    def apply(mask: Long): Mask = new Mask(mask)
-    
-    def forSquares(squareIds : Int*) : Mask = (Empty /: squareIds.map(Mask.forSquare(_)))(_ combine _)
+    private[connect4] def apply(mask: Long): Mask = new Mask(mask)
+
+    def forSquares(squareIds: Int*): Mask = (Empty /: squareIds.map(Mask.forSquare(_)))(_ combine _)
 
     def forSquare(squareId: Int): Mask = new Mask(1l << squareId)
 
+    /**
+      * A mask that selects no square.
+      */
     val Empty = new Mask(0l)
 
+    /**
+      * A mask that is not legal and hence can be distinguished from all legal masks.
+      */
     val Illegal = new Mask(-1l)
-    
-    def selectAll(squares : Int) : Mask = new Mask((1 << squares)-1)
+
+    /**
+      * A mask that selects all squares on the current board.
+      */
+    def selectAll(squares: Int): Mask = new Mask((1l << squares) - 1)
 }

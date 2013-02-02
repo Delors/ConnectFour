@@ -78,14 +78,14 @@ class State private (val state: Long) extends AnyVal {
 }
 
 /**
-  * Factory to create state objects.
+  * Factory to create/get state objects.
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 object State {
 
     /**
-      * Creates a state object that identifies a game that has ended, because a player has won the game.
+      * Creates a state object that identifies a game that has ended, because some player has won the game.
       *
       * @param mask The mask that identifies the line of four connected men of the wining player. The value
       *     has to be – if SQ is the number of squares of the board – between 15 (1l|1l<<1|1l<<2|1l<<3) and

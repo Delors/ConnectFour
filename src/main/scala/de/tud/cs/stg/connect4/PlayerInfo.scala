@@ -34,8 +34,14 @@ package de.tud.cs.stg.connect4
 
 class PlayerInfo private (val playerInfo: Long) extends AnyVal {
 
+    /**
+      * True if the given, occupied square belongs to the white player.
+      */
     def isWhite(squareId: Int): Boolean = (playerInfo & (1l << squareId)) == 0l
 
+    /**
+      * True if the given, occupied square belongs to the black player.
+      */
     def isBlack(squareId: Int): Boolean = (playerInfo & (1l << squareId)) != 0l
 
     /**
@@ -44,12 +50,19 @@ class PlayerInfo private (val playerInfo: Long) extends AnyVal {
       */
     def belongsTo(squareId: Int): Player = Player((playerInfo >>> squareId) & 1l)
 
+    /**
+      * True, if all squares identified by the given mask belong to the white player.
+      */
     def areWhite(squareMask: Mask): Boolean = (playerInfo & squareMask.value) == 0l
 
+    /**
+      * True, if all squares identified by the given mask belong to the black player.
+      */
     def areBlack(squareMask: Mask): Boolean = (playerInfo & squareMask.value) == squareMask.value
 
     /**
       * Returns the player that occupies the squares identified by the given mask.
+      *
       * If not all squares are occupied by the same player `None` is returned.
       * The result is only defined iff all identified squares are occupied.
       */
@@ -62,17 +75,32 @@ class PlayerInfo private (val playerInfo: Long) extends AnyVal {
         }
     }
 
+    /**
+      * True if all identified squares belong to the same player (white or black).
+      */
     def belongToSamePlayer(squareMask: Mask): Boolean = {
         val filteredPlayerInfo = playerInfo & squareMask.value
         return filteredPlayerInfo == 0l || filteredPlayerInfo == squareMask.value
     }
 
+    /**
+      * True if it is white's turn. I.e., the next move has to be done by the white player.
+      */
     def isWhitesTurn(): Boolean = (playerInfo >>> 63) == 0l
 
+    /**
+      * True if it is black's turn. I.e., the next move has to be done by the white player.
+      */
     def isBlacksTurn(): Boolean = (playerInfo >>> 63) == 1l
 
+    /**
+      * Returns the player who has to make the next move.
+      */
     def turnOf(): Player = Player(playerInfo >>> 63)
 
+    /**
+      * Puts a man of the current player in the given square and returns a new `PlayerInfo` object.
+      */
     def update(squareMask: Mask): PlayerInfo =
         if ((playerInfo >>> 63) == 0l)
             new PlayerInfo(playerInfo | 1l << 63)
@@ -90,7 +118,7 @@ object PlayerInfo {
 
     /**
       * Creates a new player info object. The current player; i.e., the player that has to make the next
-      * move is set to the white player.
+      * move, is set to the white player.
       */
     def create(): PlayerInfo = new PlayerInfo(0)
 }

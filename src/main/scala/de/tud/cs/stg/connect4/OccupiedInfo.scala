@@ -50,7 +50,9 @@ class OccupiedInfo private (val board: Long) extends AnyVal {
 
     def lastMoves(occupiedInfo: OccupiedInfo): Mask = Mask(occupiedInfo.board ^ this.board)
 }
+
 object OccupiedInfo {
+    
     /**
       * Creates a new `OccupiedInfo` object where all squares are empty.
       */
