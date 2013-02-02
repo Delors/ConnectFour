@@ -32,6 +32,15 @@
  */
 package de.tud.cs.stg.connect4
 
+/**
+  * Stores the information by which player a specific (occupied) square is occupied. The information
+  * whether or not a specific square is occupied is handled by the class
+  * [[de.tud.cs.stg.connect4.OccupiedInfo]].
+  *
+  * @param playerInfo Encodes the information which square is occupied by which player, if the square
+  * 	is occupied at all.
+  * @author Michael Eichberg
+  */
 class PlayerInfo private (val playerInfo: Long) extends AnyVal {
 
     /**
@@ -89,7 +98,7 @@ class PlayerInfo private (val playerInfo: Long) extends AnyVal {
     def isWhitesTurn(): Boolean = (playerInfo >>> 63) == 0l
 
     /**
-      * True if it is black's turn. I.e., the next move has to be done by the white player.
+      * True if it is black's turn. I.e., the next move has to be done by the black player.
       */
     def isBlacksTurn(): Boolean = (playerInfo >>> 63) == 1l
 

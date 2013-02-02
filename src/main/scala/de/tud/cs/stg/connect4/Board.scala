@@ -33,7 +33,7 @@
 package de.tud.cs.stg.connect4
 
 /**
-  * All basic information about a specific board.
+  * Provides basic information about a specific ''Connect Four'' board.
   *
   * The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 8 rows and 8 columns, but which do not have more than 56 squares; i.e.,
@@ -199,7 +199,7 @@ class Board( final val rows: Int, final val cols: Int) {
     final val masksForConnect4Check: Array[Mask] = masksForConnect4CheckPerOrientation.flatten.flatten
 
     /**
-      * Array[#SQUARES] of an array of masks that need to be considered in a connect four check if a men was
+      * Array of array of masks that need to be considered in a connect four check if a men was
       * put in a specific square.
       */
     final val masksForConnect4CheckForSquare: Array[Array[Mask]] = {
@@ -281,14 +281,14 @@ class Board( final val rows: Int, final val cols: Int) {
     final def squareId(row: Int, col: Int): Int = row * cols + col
 
     /**
-      * Returns the id ([0..rows-1]) of the row of the given square.
+      * Returns the id (Range: 0 to rows-1) of the row of the given square.
       *
       * @param squareId A valid square id.
       */
     final def row(squareID: Int): Int = squareID / cols
 
     /**
-      * Returns the id ([0..cols-1]) of the column of the given square.
+      * Returns the id (Range: 0 to cols-1) of the column of the given square.
       *
       * @param squareId A valid square id.
       */
@@ -296,7 +296,9 @@ class Board( final val rows: Int, final val cols: Int) {
 
     /**
       * Returns the id of the column of the square(s) identified by the mask.
+      *
       * If squares in different columns are masked, an IllegalArgumentException is thrown.
+      * @throws IllegalArgumentException if the mask selects squares in multiple columns.
       */
     final def column(mask: Mask): Int = {
         for (col ← 0 to maxColIndex) {
@@ -307,6 +309,12 @@ class Board( final val rows: Int, final val cols: Int) {
         )
     }
 
+    /**
+      * Returns the id of the square selected by the given mask.
+      *
+      * ==Prerequisite==
+      * The given mask must indentify exactly one square.
+      */
     final def squareId(singleSquareMask: Mask): Int = {
         var upperBound = maxSquareIndex
         var lowerBound = 0

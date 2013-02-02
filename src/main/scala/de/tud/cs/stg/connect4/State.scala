@@ -39,11 +39,13 @@ package de.tud.cs.stg.connect4
   *  1. The game is not finished ([[de.tud.cs.stg.connect4.State.NotFinished]]).
   *  1. The game is drawn ([[de.tud.cs.stg.connect4.State.Drawn]]).
   *  1. Some player has won the game.
+  * 
   * The value associated with the first state (`NotFinished`) is the long value -1l; the long value associated
   * with the second state (`Drawn`) is 0l. The third case is a mask (a value >= 15l) to (a)
   * identify that some player has won and (b) to simultaneously specify the line of four connect men on the
   * board.
   *
+  * @param state Encodes the state information.
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 class State private (val state: Long) extends AnyVal {

@@ -32,27 +32,70 @@
  */
 package de.tud.cs.stg.connect4
 
+/**
+  * Stores the information which squares of a connect four game are occupied.
+  * 
+  * The information by which
+  * player an occupied field is actually occupied is stored in a [[de.tud.cs.stg.connect4.PlayerInfo]]
+  * object.
+  *
+  * @param board Encodes the information which squares are occupied.
+  * @author Michael Eichberg
+  */
 class OccupiedInfo private (val board: Long) extends AnyVal {
 
+    /**
+      * True if the board is completely empty.
+      */
     def allSquaresEmpty(): Boolean = board == 0l
 
+    /**
+      * True, if the square with the given id is empty.
+      */
     def isEmpty(squareId: Int): Boolean = (board & (1l << squareId)) == 0l
 
+    /**
+      * True, if the square with the given id is occupied by a player.
+      */
     def isOccupied(squareId: Int): Boolean = (board & (1l << squareId)) != 0l
 
+    /**
+      * Tests if all squares that are identified by the given mask are empty.
+      */
     def areEmpty(squareMask: Mask): Boolean = (board & squareMask.value) == 0l
 
+    /**
+      * Tests if all squares that are identified by the given mask are occupied.
+      */
     def areOccupied(squareMask: Mask): Boolean = (board & squareMask.value) == squareMask.value
 
+    /**
+      * Updates this mask and returns a new mask where the given squares are also set.
+      */
     def update(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board | squareMask.value)
 
+    /**
+      * Returns the occupied squares of this mask that are also selected by the given mask.
+      */
     def filter(squareMask: Mask): OccupiedInfo = new OccupiedInfo(board & squareMask.value)
 
+    /**
+      * Returns a mask that identifies the squares where a man was placed when compared with this
+      * maks (the base mask).
+      *
+      * ==Prerequisite==
+      * The result is only defined if the given mask is a successor mask of this mask.
+      */
     def lastMoves(occupiedInfo: OccupiedInfo): Mask = Mask(occupiedInfo.board ^ this.board)
 }
 
+/**
+  * Factory object to create `OccupiedInfo` objects.
+  *
+  * @author Michael Eichberg
+  */
 object OccupiedInfo {
-    
+
     /**
       * Creates a new `OccupiedInfo` object where all squares are empty.
       */
