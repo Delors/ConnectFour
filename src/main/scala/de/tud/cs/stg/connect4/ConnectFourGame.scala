@@ -57,7 +57,8 @@ import scala.collection.mutable.Buffer
   *     7 ''COLUMNS'' = 42 SQUARES.
   *  - The first player is called the ''WHITE'' player and has the integer identifier 0.
   *  - The second player is called the ''BLACK'' player and has the integer identifier 1.
-  *  - Given a board with 6 rows and 7 columns each player has 21 MEN. Dropping a man in a column is called a ''MOVE''.
+  *  - Given a board with 6 rows and 7 columns each player has 21 MEN. Dropping a man in a column is called a
+  * 	''MOVE''.
   *
   * The squares are indexed as follows if we have six rows and seven columns:
   * <pre>
@@ -156,7 +157,9 @@ class ConnectFourGame(
                     if (filteredOccupiedInfo.allSquaresEmpty)
                         Mask(1l << col)
                     else
-                        Mask((filteredOccupiedInfo.board ^ columnMask.value) & (filteredOccupiedInfo.board << board.cols))
+                        Mask(
+                            (filteredOccupiedInfo.board ^ columnMask.value) &
+                                (filteredOccupiedInfo.board << board.cols))
                 }
                 advance()
                 mask
@@ -188,7 +191,10 @@ class ConnectFourGame(
     /**
       * Creates a new ConnectFourGame object.
       */
-    protected[connect4] def newConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): ConnectFourGame = {
+    protected[connect4] def newConnectFourGame(
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): ConnectFourGame = {
+
         new ConnectFourGame(board, score, occupiedInfo, playerInfo)
     }
 
@@ -232,7 +238,10 @@ class ConnectFourGame(
       * ==Note==
       * Every call to this method (re)analyses the board given the last move
       */
-    protected[connect4] def determineState(lastMove: Mask, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State =
+    protected[connect4] def determineState(
+        lastMove: Mask,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): State =
         determineState(board.masksForConnect4CheckForSquare(board.squareId(lastMove)), occupiedInfo, playerInfo)
 
     /**
@@ -243,7 +252,11 @@ class ConnectFourGame(
       * ==Note==
       * Every call to this method (re)analyses the board given the last move
       */
-    protected[connect4] def determineState(allMasks: Array[Mask], occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): State = {
+    protected[connect4] def determineState(
+        allMasks: Array[Mask],
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): State = {
+
         // 1. check if we can find a line of four connected men related to the last move
         val allMasksCount = allMasks.size
         var m = 0
@@ -464,7 +477,7 @@ object ConnectFourGame {
       */
     def apply(
         board: Board,
-        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) =
+        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) =
         new ConnectFourGame(board, score)
 
     /**
@@ -475,7 +488,7 @@ object ConnectFourGame {
       * 	are not final states.
       */
     def withDebug(board: Board,
-                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) = {
+                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
 
         class DebugConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
@@ -520,7 +533,7 @@ object ConnectFourGame {
       * 	are not final states.
       */
     def withDotOutput(board: Board,
-                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) = {
+                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
 
         class ConnectFourGameWithDotOutput(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
@@ -598,18 +611,29 @@ object ConnectFourGame {
         new ConnectFourGameWithDotOutput(OccupiedInfo.create(), PlayerInfo.create())
     }
 
+    /**
+      * A scoring function that assigns the same value to all boards.
+      *
+      * This scoring function is primarily useful for testing purposes.
+      */
     def fixedScore(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = 0
 
+    /**
+      * A scoring function that assigns a random value to the current board.
+      *
+      * This scoring function is primarily useful for testing purposes.
+      */
     def randomScore(): (Board, OccupiedInfo, PlayerInfo) ⇒ Int = {
         val rng = new java.util.Random();
         (board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) ⇒ {
-            rng.nextInt(21)
+            rng.nextInt(21) - 10
         }
     }
-        
+
     /**
       * Scores a board by considering the weight of the squares occupied by each player. This scoring
-      * function is extremely simple and fast.
+      * function is simple and fast but – in combination with a decent evaluation of the search tree – makes
+      * a reasonable opponent.
       */
     def scoreBasedOnSquareWeights(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
 
@@ -660,16 +684,115 @@ object ConnectFourGame {
     }
 
     /**
-      *
+      * This scoring function scores a board by looking for lines of three connected men that can be extended
+      * to a line of four connected men.
       */
     def scoreBasedOnLinesOfThreeConnectedMen(
         board: Board,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): Int = {
 
-        0
+        def determineState(
+            lastMove: Int /*Square Id*/ ,
+            occupiedInfo: OccupiedInfo,
+            playerInfo: PlayerInfo): State = {
+            val allMasks: Array[Mask] = board.masksForConnect4CheckForSquare(lastMove)
+
+            // 1. check if we can find a line of four connected men related to the last move
+            val allMasksCount = allMasks.size
+            var m = 0
+            do {
+                val mask = allMasks(m)
+                if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
+                m += 1
+            } while (m < allMasksCount)
+
+            // 2. check if the game is finished or not yet decided 
+            if (occupiedInfo.areOccupied(board.topRowMask))
+                State.Drawn
+            else
+                State.NotFinished
+        }
+
+        val maxRowIndex = board.maxRowIndex
+
+        var sumOfSquareWeights = 0
+        var weightedWinningPositionsWhite = 0
+        var weightedWinningPositionsBlack = 0
+
+        var col = board.cols - 1
+        do {
+            var row = 0
+            var whiteWinningPositions, blackWinningPositions = List[Int]() // list of relevant winning positions
+            do {
+                val squareId = board.squareId(row, col)
+                if (occupiedInfo.isOccupied(squareId)) {
+                    val squareWeight = board.squareWeights(squareId)
+                    sumOfSquareWeights += (if (playerInfo.isWhite(squareId)) squareWeight else -squareWeight)
+                }
+                else {
+                    val squareMask = Mask.forSquare(squareId)
+                    val potentialOI = occupiedInfo.update(squareMask)
+
+                    val potentialPIWhite = playerInfo.update(squareMask, Player.White)
+                    if (determineState(squareId, potentialOI, potentialPIWhite).hasWinner) {
+                        if (blackWinningPositions.isEmpty) {
+                            if (whiteWinningPositions.isEmpty) {
+                                weightedWinningPositionsWhite += 100
+                                whiteWinningPositions = row :: whiteWinningPositions
+                            }
+                            else {
+                                if (whiteWinningPositions.tail.isEmpty &&
+                                    (row - whiteWinningPositions.head) % 2 == 1) {
+                                    weightedWinningPositionsWhite +=
+                                        // this is a "sure win" in this column!
+                                        (board.rows - (row - whiteWinningPositions.head)) * 1000
+                                    whiteWinningPositions = row :: whiteWinningPositions
+                                }
+                            }
+                        }
+                        else if (blackWinningPositions.tail.isEmpty) {
+                            if ((row - blackWinningPositions.head) % 2 == 0 && whiteWinningPositions.isEmpty) {
+                                weightedWinningPositionsWhite += 100
+                                whiteWinningPositions = row :: whiteWinningPositions
+                            } // else... a position immediately above a winning position of black has no value for white
+                        } // else... if black already has two winning positions another line of three connected men is not helpful
+                    }
+
+                    val potentialPIBlack = playerInfo.update(squareMask, Player.Black)
+                    if (determineState(squareId, potentialOI, potentialPIBlack).hasWinner) {
+                        if (whiteWinningPositions.isEmpty) {
+                            if (blackWinningPositions.isEmpty) {
+                                weightedWinningPositionsBlack += 100
+                                blackWinningPositions = row :: blackWinningPositions
+                            }
+                            else {
+                                if (blackWinningPositions.tail.isEmpty &&
+                                    (row - blackWinningPositions.head) % 2 == 1) {
+                                    weightedWinningPositionsBlack +=
+                                        (board.rows - (row - blackWinningPositions.head)) * 1000
+                                    blackWinningPositions = row :: blackWinningPositions
+                                }
+                            }
+                        }
+                        else if (whiteWinningPositions.tail.isEmpty) {
+                            if ((row - whiteWinningPositions.head) % 2 == 0 && blackWinningPositions.isEmpty) {
+                                weightedWinningPositionsBlack += 100
+                                blackWinningPositions = row :: blackWinningPositions
+                            }
+                        }
+                    }
+                }
+                row = row + 1
+            } while (row <= maxRowIndex)
+
+            col = col - 1
+        } while (col >= 0)
+
+        // println(sumOfSquareWeights+" :: "+weightedWinningPositionsWhite+"<=>"+weightedWinningPositionsBlack)
+        sumOfSquareWeights + weightedWinningPositionsWhite - weightedWinningPositionsBlack
     }
-    
+
 }
 
 

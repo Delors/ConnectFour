@@ -116,6 +116,23 @@ class PlayerInfo private (val playerInfo: Long) extends AnyVal {
         else
             new PlayerInfo((playerInfo | squareMask.value) & Long.MaxValue)
 
+    /**
+      * Puts a man of the given player in the square identified by the given mask and returns a new
+      * `PlayerInfo` object.
+      *
+      * Note that is method ''may return an invalid `PlayerInfo` info object'' that cannot be the result of
+      * a regular game. Furthermore, the information about the player who's turn it is, is no longer
+      * meaningful.
+      *
+      * This method is only intended to be used by a scoring function where the result is only used to score a
+      * potential board and is then thrown away.
+      */
+    def update(squareMask: Mask, player: Player): PlayerInfo = {
+        if (player.isWhite)
+            new PlayerInfo(playerInfo & ~(squareMask.value))
+        else
+            new PlayerInfo(playerInfo | squareMask.value)
+    }
 }
 
 /**
