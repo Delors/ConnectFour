@@ -1,6 +1,6 @@
 name := "Connect4"
 
-version := "0.6"
+version := "0.9.9"
 
 scalaVersion := "2.10.0"
 
