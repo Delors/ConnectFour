@@ -464,7 +464,7 @@ object ConnectFourGame {
       */
     def apply(
         board: Board,
-        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) =
+        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) =
         new ConnectFourGame(board, score)
 
     /**
@@ -475,7 +475,7 @@ object ConnectFourGame {
       * 	are not final states.
       */
     def withDebug(board: Board,
-                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
+                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) = {
 
         class DebugConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
@@ -520,7 +520,7 @@ object ConnectFourGame {
       * 	are not final states.
       */
     def withDotOutput(board: Board,
-                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = ConnectFourGame.score) = {
+                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnSquareWeights) = {
 
         class ConnectFourGameWithDotOutput(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
                 extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
@@ -598,11 +598,20 @@ object ConnectFourGame {
         new ConnectFourGameWithDotOutput(OccupiedInfo.create(), PlayerInfo.create())
     }
 
+    def fixedScore(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = 0
+
+    def randomScore(): (Board, OccupiedInfo, PlayerInfo) ⇒ Int = {
+        val rng = new java.util.Random();
+        (board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) ⇒ {
+            rng.nextInt(21)
+        }
+    }
+        
     /**
       * Scores a board by considering the weight of the squares occupied by each player. This scoring
       * function is extremely simple and fast.
       */
-    def score(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
+    def scoreBasedOnSquareWeights(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
 
         import board._
 
@@ -650,6 +659,17 @@ object ConnectFourGame {
         }
     }
 
+    /**
+      *
+      */
+    def scoreBasedOnLinesOfThreeConnectedMen(
+        board: Board,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): Int = {
+
+        0
+    }
+    
 }
 
 

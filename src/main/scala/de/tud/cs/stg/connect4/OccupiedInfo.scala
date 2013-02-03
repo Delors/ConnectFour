@@ -34,7 +34,7 @@ package de.tud.cs.stg.connect4
 
 /**
   * Stores the information which squares of a connect four game are occupied.
-  * 
+  *
   * The information by which
   * player an occupied field is actually occupied is stored in a [[de.tud.cs.stg.connect4.PlayerInfo]]
   * object.

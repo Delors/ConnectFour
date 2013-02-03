@@ -268,8 +268,18 @@ class Board( final val rows: Int, final val cols: Int) {
         squareWeights
     }
 
+    /**
+      * The maximum weight of all squares. See [[de.tud.cs.stg.connect4.Board.squareWeights]].
+      *
+      * May be used to implement the ai/a scoring function.
+      */
     final val maxSquareWeight: Int = squareWeights.max
 
+    /**
+      * The minimum weight of all squares. See [[de.tud.cs.stg.connect4.Board.squareWeights]].
+      *
+      * May be used to implement the ai/a scoring function.
+      */
     final val minSquareWeight: Int = squareWeights.min
 
     /**
@@ -333,6 +343,11 @@ class Board( final val rows: Int, final val cols: Int) {
         id
     }
 
+    /**
+      * Returns a mask that selects all squares that are one row higher than those of the given mask.
+      *
+      * If the given mask already selects squares in the top-level row an invalid mask is returned.
+      */
     final def moveUpByOneRow(mask: Mask): Mask = Mask(mask.value << cols)
 
     /**
