@@ -192,35 +192,36 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
             bWhiteCanWin.proposeMove(2) should be(Mask.forSquare(6))
             bWhiteCanWin.proposeMove(1) should be(Mask.forSquare(6))
         }
-
-        it("the better ai should win the game") {
-
-            def playGame(playerAStrength: Int, playerBStrength: Int): ConnectFourGame = {
-                var g = b0;
-
-                do {
-                    var ng = g.makeMove(g.proposeMove(playerAStrength))
-                    if (ng.determineState.hasWinner) return ng;
-                    g = ng.makeMove(ng.proposeMove(playerBStrength))
-                } while (!g.determineState.isFinished)
-                fail("The game was won by the weak ai("+playerAStrength+" vs. "+playerBStrength+"):\n"+g.boardToString)
-            }
-
-            //println(playGame(2, 1))
-            println(playGame(3, 1))
-            //println(playGame(3, 2))
-            println(playGame(4, 1))
-            println(playGame(4, 2))
-            println(playGame(4, 3))
-            println(playGame(5, 1))
-            println(playGame(5, 2))
-            //println(playGame(5, 3))
-            //println(playGame(5, 4))
-            println(playGame(6, 1))
-            println(playGame(6, 2))
-            println(playGame(6, 3))
-            //println(playGame(6, 4))
-            //println(playGame(6, 5))
-        }
     }
+
+    ignore("the better ai should win the game") {
+
+        def playGame(playerAStrength: Int, playerBStrength: Int): ConnectFourGame = {
+            var g = b0;
+
+            do {
+                var ng = g.makeMove(g.proposeMove(playerAStrength))
+                if (ng.determineState.hasWinner) return ng;
+                g = ng.makeMove(ng.proposeMove(playerBStrength))
+            } while (!g.determineState.isFinished)
+            fail("The game was won by the weak ai("+playerAStrength+" vs. "+playerBStrength+"):\n"+g.boardToString)
+        }
+
+        println(playGame(2, 1))
+        println(playGame(3, 1))
+        println(playGame(3, 2))
+        println(playGame(4, 1))
+        println(playGame(4, 2))
+        println(playGame(4, 3))
+        println(playGame(5, 1))
+        println(playGame(5, 2))
+        println(playGame(5, 3))
+        println(playGame(5, 4))
+        println(playGame(6, 1))
+        println(playGame(6, 2))
+        println(playGame(6, 3))
+        println(playGame(6, 4))
+        println(playGame(6, 5))
+    }
+
 }
