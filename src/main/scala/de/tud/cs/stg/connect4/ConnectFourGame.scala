@@ -40,7 +40,7 @@ import scala.collection.mutable.Buffer
   * Represents the current game state: which fields are occupied by which player and which player has
   * to make the next move. The game state object is immutable. I.e., every update creates a new instance.
   *
-  *  For a detailed discussion of "Connect Four" go to:
+  * For a detailed discussion of "Connect Four" go to:
   * [[http://www.connectfour.net/Files/connect4.pdf Connect Four - Master Thesis]]
   *
   * ==Overview==
@@ -48,19 +48,21 @@ import scala.collection.mutable.Buffer
   * artificial intelligence.
   *
   * This implementation is primarily used for teaching purposes (w.r.t. the minimax/negamax algorithm). To
-  * this end the default scoring function is very simple, but is still strong enough to make it a reasonable
+  * this end, the default scoring function is very simple, but is still strong enough to make it a reasonable
   * opponent for a human player. However, the evaluation function to assess the game state can be considered
   * trivial at best unless the board is extremely small (4x4) - in such a case the ai plays perfectly.
   *
   * In the following we use the following terminology:
   *  - The game is always played by exactly two ''PLAYER''s on a ''BOARD'' that typically has 6 ''ROWS'' x
-  *     7 ''COLUMNS'' = 42 SQUARES.
-  *  - The first player is called the ''WHITE'' player and has the integer identifier 0.
-  *  - The second player is called the ''BLACK'' player and has the integer identifier 1.
-  *  - Given a board with 6 rows and 7 columns each player has 21 MEN. Dropping a man in a column is called a
-  * 	''MOVE''.
+  *     7 ''COLUMNS'' = 42 ''SQUARES''.
+  *  - The first player is called the ''WHITE'' player ([[de.tud.cs.stg.connect4.Player.White]]) and has the
+  *     integer identifier 0.
+  *  - The second player is called the ''BLACK'' player ([[de.tud.cs.stg.connect4.Player.Black]]) and has
+  *     the integer identifier 1.
+  *  - Given a board with 6 rows and 7 columns each player has 21 ''MEN''. Dropping a man in a column is
+  *     called a ''MOVE''.
   *
-  * The squares are indexed as follows if we have six rows and seven columns:
+  * When we have six rows and seven columns, the squares are indexed as follows :
   * <pre>
   *  35 36 37 38 39 40 41   (top-level row)
   *  28 29 30 31 32 33 34
@@ -89,27 +91,31 @@ import scala.collection.mutable.Buffer
   * }}}
   *
   * ==Implementation Details==
-  * Two long values are use to encode the game state. The game state encompasses the information
-  * which squares are occupied (encoded using the first (ROWS x COLUMNS) bits of the first long value) and
-  * – if so – by which player a square is occupied (using the first ROWS x COLUMNS bits of the second long
+  * Two long values are used to encode the game state. The game state encompasses the information
+  * which squares are occupied (encoded using the first (ROWS x COLUMNS) bits of the first long value) and -
+  * if so – by which player a square is occupied (using the first ROWS x COLUMNS bits of the second long
   * value). Hence, a specific bit of the second long value has a meaning if – and only if – the same
   * bit is set in the first long value.
   * Additionally, the information is stored which player has to make the next move (using the most
   * significant bit (the 64th) of the second long value). The other bits of the long values are not used.
+  * To make the code easily comprehensible, two value classes are defined that wrap the long values and
+  * implement the required functionality ([[de.tud.cs.stg.connect4.OccupiedInfo]] and
+  * [[de.tud.cs.stg.connect4.PlayerInfo]]).
   *
   * Overall, this design enables a reasonable performance and facilitates the exploration of a couple million
-  * game states per second (Java7, Intel Core i7 3GHZ and 8Gb Ram for the JVM).
+  * game states per second (Java 7, Intel Core i7 3GHZ and 8Gb Ram for the JVM).
   *
   * For example, to efficiently check whether the game is finished, all winning conditions are encoded using
-  * special bit masks and these masks are just matched (by means of the "&" operator)
-  * against both long values to determine whether a certain player has won the game.
+  * special bit masks (see [[de.tud.cs.stg.connect4.Board]]) and these masks are just matched (by means of
+  * the standard binary-and ("&") operator) against both long values to determine whether a certain player has
+  * won the game.
   *
   * @param board The board on which the game will be played.
-  * @param score A function that scores a specific board. The value is positive if the white player has an
-  *     advantage and negative if the black player has an advantage. The value will be in the range
-  *     (-Int.MaxValue..Int.MaxValue) unless the white or the black player will definitively win. In that
-  *     case the value is either Int.MaxValue or -Int.MaxValue. The value Int.MinValue == -Int.MaxValue-1 is
-  *     reserved for internal purposes.
+  * @param score A function that scores a specific board. The value has to be positive if the white player has an
+  *     advantage and negative if the black player has an advantage. The value has to be in the range
+  *     (`-Int.MaxValue`..`Int.MaxValue`) unless the white or the black player will definitively win. In that
+  *     case the value is either `Int.MaxValue` or `-Int.MaxValue`.
+  *     '''The value Int.MinValue == -Int.MaxValue-1 is reserved for internal purposes'''.
   * @param playerInfo In combination with `occupiedInfo` encodes the information which player occupies a
   *     square and also encodes the information which player has to make the next move.
   * @param occupiedInfo Encodes which squares are occupied.
@@ -131,7 +137,7 @@ class ConnectFourGame(
 
     /**
       * Iterator that returns the masks that selects the squares where the current player is allowed to put
-      * its next man.
+      * its next man given the a specific board configuration.
       */
     protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
@@ -152,14 +158,13 @@ class ConnectFourGame(
 
             def next(): Mask = {
                 val columnMask = board.columnMasks(col)
-                var filteredOccupiedInfo = occupiedInfo.filter(columnMask)
-                var mask = {
+                val filteredOccupiedInfo = occupiedInfo.filter(columnMask)
+                val mask = {
                     if (filteredOccupiedInfo.allSquaresEmpty)
                         Mask(1l << col)
                     else
-                        Mask(
-                            (filteredOccupiedInfo.board ^ columnMask.value) &
-                                (filteredOccupiedInfo.board << board.cols))
+                        Mask((filteredOccupiedInfo.board ^ columnMask.value) &
+                            (filteredOccupiedInfo.board << board.cols))
                 }
                 advance()
                 mask
@@ -175,7 +180,7 @@ class ConnectFourGame(
       * This method is not optimized and is therefore not intended to be used by the ai – it can, however,
       * be used in an interactive game.
       *
-      * @param column A valid column identifier ([0..MAX_COL_INDEX]).
+      * @param column A valid column identifier ([0..[[de.tud.cs.stg.connect4.Board.maxColIndex]]]).
       * @return The id of the lowest square in the given column that is free.
       */
     def lowestFreeSquareInColumn(column: Int): Option[Int] =
@@ -189,7 +194,9 @@ class ConnectFourGame(
     def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(board.topRowMask)
 
     /**
-      * Creates a new ConnectFourGame object.
+      * Creates a new `ConnectFourGame` object given the new board configuration.
+      *
+      * This method can be used by subclasses to create more specific `ConnectFourGame` objects.
       */
     protected[connect4] def newConnectFourGame(
         occupiedInfo: OccupiedInfo,
@@ -206,7 +213,7 @@ class ConnectFourGame(
       * The squares below the square have to be occupied and the specified square has to be empty.
       * However, both is not checked.
       *
-      * @param square The mask that masks the respective square.
+      * @param squareMask The mask that masks the square where the next man is put.
       * @return The updated game object.
       */
     def makeMove(squareMask: Mask): ConnectFourGame = {
@@ -526,11 +533,11 @@ object ConnectFourGame {
     }
 
     /**
-      * Creates a `Connect Four` game that always prints out the search tree using Graphviz's Dot language.
+      * Creates a `ConnectFourGame` object that always prints out the search tree using Graphviz's Dot language.
       *
       * @param board The board used for playing connect four.
-      * @param score The scoring function that will be used to score the leaf-nodes of the search tree that
-      * 	are not final states.
+      * @param score The heuristic scoring function that will be used to score the leaf-nodes of the search
+      *     tree that are not final states.
       */
     def withDotOutput(board: Board,
                       score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
@@ -596,8 +603,7 @@ object ConnectFourGame {
                         ")="+
                         (-score)+
                         "}\"];")
-                        
-                 
+
                 score
 
             }
@@ -634,8 +640,8 @@ object ConnectFourGame {
 
     /**
       * Scores a board by considering the weight of the squares occupied by each player. This scoring
-      * function is simple and fast but – in combination with a decent evaluation of the search tree – makes
-      * a reasonable opponent.
+      * function is simple and fast, but – in combination with a decent evaluation of the search tree – still
+      * makes up for a reasonable opponent.
       */
     def scoreBasedOnSquareWeights(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
 
@@ -686,8 +692,8 @@ object ConnectFourGame {
     }
 
     /**
-      * This scoring function scores a board by looking for lines of three connected men that can be extended
-      * to a line of four connected men.
+      * This scoring function scores a board by looking for existing lines of three connected men that can be
+      * extended to a line of four connected men.
       */
     def scoreBasedOnLinesOfThreeConnectedMen(
         board: Board,
@@ -719,18 +725,27 @@ object ConnectFourGame {
         val maxRowIndex = board.maxRowIndex
 
         var sumOfSquareWeights = 0
-        var weightedWinningPositionsWhite = 0
-        var weightedWinningPositionsBlack = 0
+        var weightedWinningPositionsWhite = 1
+        var weightedWinningPositionsBlack = 1
 
         var col = board.cols - 1
         do {
             var row = 0
-            var whiteWinningPositions, blackWinningPositions = List[Int]() // list of relevant winning positions
+            // list of relevant winning positions per column; per column we can have at most two relevant
+            // winning positions w.r.t. the still empty squares
+            var whiteWinningPositions, blackWinningPositions = List[Int]()
             do {
                 val squareId = board.squareId(row, col)
                 if (occupiedInfo.isOccupied(squareId)) {
+                    // if no line of three connected men is found, the ai should at least try to put their
+                    // men in squares that are of particular value..
                     val squareWeight = board.squareWeights(squareId)
-                    sumOfSquareWeights += (if (playerInfo.isWhite(squareId)) squareWeight else -squareWeight)
+                    sumOfSquareWeights +=
+                        (if (playerInfo.isWhite(squareId))
+                            squareWeight
+                        else
+                            -squareWeight
+                        ) * board.essentialSquareWeights(squareId)
                 }
                 else {
                     val squareMask = Mask.forSquare(squareId)
@@ -740,46 +755,49 @@ object ConnectFourGame {
                     if (determineState(squareId, potentialOI, potentialPIWhite).hasWinner) {
                         if (blackWinningPositions.isEmpty) {
                             if (whiteWinningPositions.isEmpty) {
-                                weightedWinningPositionsWhite += 100
+                                weightedWinningPositionsWhite *= 10
                                 whiteWinningPositions = row :: whiteWinningPositions
                             }
                             else {
                                 if (whiteWinningPositions.tail.isEmpty &&
                                     (row - whiteWinningPositions.head) % 2 == 1) {
-                                    weightedWinningPositionsWhite +=
+                                    weightedWinningPositionsWhite *=
                                         // this is a "sure win" in this column!
-                                        (board.rows - (row - whiteWinningPositions.head)) * 1000
+                                        (board.rows - (row - whiteWinningPositions.head)) * 100
                                     whiteWinningPositions = row :: whiteWinningPositions
                                 }
                             }
                         }
                         else if (blackWinningPositions.tail.isEmpty) {
                             if ((row - blackWinningPositions.head) % 2 == 0 && whiteWinningPositions.isEmpty) {
-                                weightedWinningPositionsWhite += 100
+                                weightedWinningPositionsWhite *= 10
                                 whiteWinningPositions = row :: whiteWinningPositions
-                            } // else... a position immediately above a winning position of black has no value for white
-                        } // else... if black already has two winning positions another line of three connected men is not helpful
+                            } // else... a position immediately above a winning position of black is only of 
+                            // value if we can force the other player to block/to give up its winning position 
+                        }
+                        // else... if black already has two winning positions in that column another line of 
+                        // three connected men is not helpful
                     }
 
                     val potentialPIBlack = playerInfo.update(squareMask, Player.Black)
                     if (determineState(squareId, potentialOI, potentialPIBlack).hasWinner) {
                         if (whiteWinningPositions.isEmpty) {
                             if (blackWinningPositions.isEmpty) {
-                                weightedWinningPositionsBlack += 100
+                                weightedWinningPositionsBlack *= 10
                                 blackWinningPositions = row :: blackWinningPositions
                             }
                             else {
                                 if (blackWinningPositions.tail.isEmpty &&
                                     (row - blackWinningPositions.head) % 2 == 1) {
                                     weightedWinningPositionsBlack +=
-                                        (board.rows - (row - blackWinningPositions.head)) * 1000
+                                        (board.rows - (row - blackWinningPositions.head)) * 100
                                     blackWinningPositions = row :: blackWinningPositions
                                 }
                             }
                         }
                         else if (whiteWinningPositions.tail.isEmpty) {
                             if ((row - whiteWinningPositions.head) % 2 == 0 && blackWinningPositions.isEmpty) {
-                                weightedWinningPositionsBlack += 100
+                                weightedWinningPositionsBlack *= 10
                                 blackWinningPositions = row :: blackWinningPositions
                             }
                         }
