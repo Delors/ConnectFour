@@ -280,7 +280,7 @@ class ConnectFourGame(
       * is (-)Int.MaxValue the current(opponent) player can/will win. If the value is 0 the game is
       * drawn or the ai was not able to determine if any player has an advantage.
       *
-      * Subclasses are explicitly allowed to implement ''fail-soft alpha-beta pruning''. Hence, two moves
+      * Subclasses are explicitly allowed to implement ''fail-soft alpha-beta-pruning''. Hence, two moves
       * that are rated equally are not necessarily equally good when the second move was evaluated given
       * some specific alpha-beta bounds.
       *
@@ -387,7 +387,7 @@ class ConnectFourGame(
             val nextMove: Mask = nextMoves.next()
             val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
 
-            // Beware: the negamax is implemented using fail-soft alpha-beta pruning; hence, if we would
+            // Beware: the negamax is implemented using fail-soft alpha-beta-pruning; hence, if we would
             // choose a move with a value that is equal to the value of a previously evaluated move, it
             // could lead to a move that is actually advantageous for the opponent because a relevant part of
             // the search true was cut. 
@@ -403,7 +403,7 @@ class ConnectFourGame(
             // When the AI determines that it will always loose in the long run (when the opponent plays 
             // perfectly) it may still be possible to prevent the opponent from winning immediately and
             // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
-            // a meaningfull move, we simply reduce the number of levels we want to explore.
+            // a meaningful move, we simply reduce the number of levels we want to explore.
             proposeMove(math.max(1, aiStrength - 2))
         else
             bestMove
@@ -568,7 +568,7 @@ object ConnectFourGame {
                         (beta)+
                         "| v("+
                         currentNodeLabel+
-                        ")="+(score)+
+                        ")="+(-score)+
                         "}\"];")
                 currentNodeLabel = oldLabel
 
@@ -594,17 +594,19 @@ object ConnectFourGame {
                         "| v("+
                         currentNodeLabel+
                         ")="+
-                        (score)+
+                        (-score)+
                         "}\"];")
-
+                        
+                 
                 score
+
             }
 
             override def proposeMove(aiStrength: Int): Mask = {
                 println("digraph connect4{ ordering=out;node [shape=record,style=filled];")
-                val value = super.proposeMove(aiStrength)
-                println("\"root\" [label="+value+"];\n}")
-                value
+                val move = super.proposeMove(aiStrength)
+                println("\"root\" [label=\"move = "+board.column(move)+"\"];\n}")
+                move
             }
         }
 
