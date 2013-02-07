@@ -268,6 +268,11 @@ class Board( final val rows: Int, final val cols: Int) {
         squareWeights
     }
 
+    final val sumOfSquareWeightsTimeEssentialSquareWeights: Int = {
+        val vs = squareWeights.zip(essentialSquareWeights).map(p ⇒ { val (a, b) = p; a * b })
+        (0 /: vs)(_ + _)
+    }
+
     /**
       * The maximum weight of all squares. See [[de.tud.cs.stg.connect4.Board.squareWeights]].
       *

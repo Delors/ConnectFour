@@ -124,7 +124,8 @@ import scala.collection.mutable.Buffer
   */
 class ConnectFourGame(
         final val board: Board,
-        final val score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int,
+        final val score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int,
+        final val occupiedSquares: Int = 0,
         final val occupiedInfo: OccupiedInfo = OccupiedInfo.create(),
         final val playerInfo: PlayerInfo = PlayerInfo.create()) {
 
@@ -199,10 +200,11 @@ class ConnectFourGame(
       * This method can be used by subclasses to create more specific `ConnectFourGame` objects.
       */
     protected[connect4] def newConnectFourGame(
+        occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): ConnectFourGame = {
 
-        new ConnectFourGame(board, score, occupiedInfo, playerInfo)
+        new ConnectFourGame(board, score, occupiedSquares, occupiedInfo, playerInfo)
     }
 
     /**
@@ -213,11 +215,14 @@ class ConnectFourGame(
       * The squares below the square have to be occupied and the specified square has to be empty.
       * However, both is not checked.
       *
-      * @param squareMask The mask that masks the square where the next man is put.
+      * @param singleSquareMask The mask that masks the square where the next man is put.
       * @return The updated game object.
       */
-    def makeMove(squareMask: Mask): ConnectFourGame = {
-        newConnectFourGame(occupiedInfo.update(squareMask), playerInfo.update(squareMask))
+    def makeMove(singleSquareMask: Mask): ConnectFourGame = {
+        newConnectFourGame(
+            occupiedSquares + 1,
+            occupiedInfo.update(singleSquareMask),
+            playerInfo.update(singleSquareMask))
     }
 
     /**
@@ -304,6 +309,7 @@ class ConnectFourGame(
       * @param beta The best value that the opponent can achieve (Initially `Int.MaxValue`).
       */
     protected[connect4] def negamax(
+        occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo,
         lastMove: Mask,
@@ -323,9 +329,9 @@ class ConnectFourGame(
         // 2. check if we have to abort exploring the search tree and have to assess the game state
         if (depth <= 0) {
             if (playerInfo.isWhitesTurn())
-                return score(board, occupiedInfo, playerInfo)
+                return score(board, occupiedSquares, occupiedInfo, playerInfo)
             else
-                return -score(board, occupiedInfo, playerInfo)
+                return -score(board, occupiedSquares, occupiedInfo, playerInfo)
         }
 
         // 3. performs a recursive call to this method to continue exploring the search tree
@@ -334,7 +340,7 @@ class ConnectFourGame(
         var newAlpha = alpha
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next
-            val value = evaluateMove(nextMove, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha)
+            val value = evaluateMove(nextMove, occupiedSquares, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha)
             if (value >= beta) {
                 // there will be no better move (we don't mind if there are other equally good moves)
                 return value;
@@ -357,13 +363,17 @@ class ConnectFourGame(
       */
     protected[connect4] def evaluateMove(
         nextMove: Mask,
+        occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo,
         depth: Int,
         alpha: Int,
         beta: Int): Int = {
 
-        -negamax(occupiedInfo.update(nextMove), playerInfo.update(nextMove), nextMove, depth, alpha, beta)
+        -negamax(occupiedSquares + 1,
+            occupiedInfo.update(nextMove),
+            playerInfo.update(nextMove),
+            nextMove, depth, alpha, beta)
     }
 
     /**
@@ -373,7 +383,14 @@ class ConnectFourGame(
       * This method was introduced as a hook to enable subclasses to intercept the initial call to `negamax`.
       */
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
-        -negamax(occupiedInfo.update(nextMove), playerInfo.update(nextMove), nextMove, depth, alpha, beta)
+        -negamax(
+            occupiedSquares + 1,
+            occupiedInfo.update(nextMove),
+            playerInfo.update(nextMove),
+            nextMove,
+            depth,
+            alpha,
+            beta)
     }
 
     /**
@@ -454,7 +471,10 @@ class ConnectFourGame(
     /**
       * Returns a human readable representation of the current game state suitable for debugging purposes.
       */
-    override def toString() = "Next Player: "+playerInfo.turnOf()+"\nBoard:\n"+boardToString
+    override def toString() =
+        "Next Player: "+playerInfo.turnOf()+
+            "\nBoard ("+occupiedSquares+"/"+board.squares+"):\n"+
+            boardToString
 
 }
 
@@ -484,7 +504,7 @@ object ConnectFourGame {
       */
     def apply(
         board: Board,
-        score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) =
+        score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) =
         new ConnectFourGame(board, score)
 
     /**
@@ -495,16 +515,17 @@ object ConnectFourGame {
       * 	are not final states.
       */
     def withDebug(board: Board,
-                  score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
+                  score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
 
-        class DebugConnectFourGame(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
-                extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
+        class DebugConnectFourGame(occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
+                extends ConnectFourGame(board, score, occupiedSquares, occupiedInfo, playerInfo) {
 
             override protected[connect4] def newConnectFourGame(
+                occupiedSquares: Int,
                 occupiedInfo: OccupiedInfo,
                 playerInfo: PlayerInfo): ConnectFourGame = {
 
-                new DebugConnectFourGame(occupiedInfo, playerInfo)
+                new DebugConnectFourGame(occupiedSquares, occupiedInfo, playerInfo)
             }
 
             override protected[connect4] def evaluateMove(
@@ -529,7 +550,7 @@ object ConnectFourGame {
             }
         }
 
-        new DebugConnectFourGame(OccupiedInfo.create(), PlayerInfo.create())
+        new DebugConnectFourGame(0, OccupiedInfo.create(), PlayerInfo.create())
     }
 
     /**
@@ -540,22 +561,24 @@ object ConnectFourGame {
       *     tree that are not final states.
       */
     def withDotOutput(board: Board,
-                      score: (Board, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
+                      score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = scoreBasedOnLinesOfThreeConnectedMen) = {
 
-        class ConnectFourGameWithDotOutput(occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
-                extends ConnectFourGame(board, score, occupiedInfo, playerInfo) {
+        class ConnectFourGameWithDotOutput(occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo)
+                extends ConnectFourGame(board, score, occupiedSquares, occupiedInfo, playerInfo) {
 
             override protected[connect4] def newConnectFourGame(
+                occupiedSquares: Int,
                 occupiedInfo: OccupiedInfo,
                 playerInfo: PlayerInfo) = {
 
-                new ConnectFourGameWithDotOutput(occupiedInfo, playerInfo)
+                new ConnectFourGameWithDotOutput(occupiedSquares, occupiedInfo, playerInfo)
             }
 
             private var currentNodeLabel: String = _
 
             override protected[connect4] def evaluateMove(
                 nextMove: Mask,
+                occupiedSquares: Int,
                 occupiedInfo: OccupiedInfo,
                 playerInfo: PlayerInfo,
                 depth: Int,
@@ -565,7 +588,7 @@ object ConnectFourGame {
                 val oldLabel = currentNodeLabel
                 currentNodeLabel += String.valueOf(board.column(nextMove))+"↓"
                 println("\""+oldLabel+"\" -> "+"\""+currentNodeLabel+"\";")
-                val score = super.evaluateMove(nextMove, occupiedInfo, playerInfo, depth, alpha, beta)
+                val score = super.evaluateMove(nextMove, occupiedSquares, occupiedInfo, playerInfo, depth, alpha, beta)
                 println(
                     "\""+
                         currentNodeLabel+
@@ -616,7 +639,7 @@ object ConnectFourGame {
             }
         }
 
-        new ConnectFourGameWithDotOutput(OccupiedInfo.create(), PlayerInfo.create())
+        new ConnectFourGameWithDotOutput(0, OccupiedInfo.create(), PlayerInfo.create())
     }
 
     /**
@@ -624,16 +647,16 @@ object ConnectFourGame {
       *
       * This scoring function is primarily useful for testing purposes.
       */
-    def fixedScore(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = 0
+    def fixedScore(board: Board, occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = 0
 
     /**
       * A scoring function that assigns a random value to the current board.
       *
       * This scoring function is primarily useful for testing purposes.
       */
-    def randomScore(): (Board, OccupiedInfo, PlayerInfo) ⇒ Int = {
+    def randomScore(): (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = {
         val rng = new java.util.Random();
-        (board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) ⇒ {
+        (board: Board, occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) ⇒ {
             rng.nextInt(21) - 10
         }
     }
@@ -643,7 +666,11 @@ object ConnectFourGame {
       * function is simple and fast, but – in combination with a decent evaluation of the search tree – still
       * makes up for a reasonable opponent.
       */
-    def scoreBasedOnSquareWeights(board: Board, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = {
+    def scoreBasedOnSquareWeights(
+        board: Board,
+        occupiedSquares: Int,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): Int = {
 
         import board._
 
@@ -697,10 +724,11 @@ object ConnectFourGame {
       */
     def scoreBasedOnLinesOfThreeConnectedMen(
         board: Board,
+        occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): Int = {
 
-        def determineState(
+        def determineStateOfPotentialBoard(
             lastMove: Int /*Square Id*/ ,
             occupiedInfo: OccupiedInfo,
             playerInfo: PlayerInfo): State = {
@@ -725,8 +753,8 @@ object ConnectFourGame {
         val maxRowIndex = board.maxRowIndex
 
         var sumOfSquareWeights = 0
-        var weightedWinningPositionsWhite = 1
-        var weightedWinningPositionsBlack = 1
+        var weightedWinningPositionsWhite = board.sumOfSquareWeightsTimeEssentialSquareWeights
+        var weightedWinningPositionsBlack = board.sumOfSquareWeightsTimeEssentialSquareWeights
 
         var col = board.cols - 1
         do {
@@ -752,10 +780,10 @@ object ConnectFourGame {
                     val potentialOI = occupiedInfo.update(squareMask)
 
                     val potentialPIWhite = playerInfo.update(squareMask, Player.White)
-                    if (determineState(squareId, potentialOI, potentialPIWhite).hasWinner) {
+                    if (determineStateOfPotentialBoard(squareId, potentialOI, potentialPIWhite).hasWinner) {
                         if (blackWinningPositions.isEmpty) {
                             if (whiteWinningPositions.isEmpty) {
-                                weightedWinningPositionsWhite *= 10
+                                weightedWinningPositionsWhite *= 2
                                 whiteWinningPositions = row :: whiteWinningPositions
                             }
                             else {
@@ -763,14 +791,14 @@ object ConnectFourGame {
                                     (row - whiteWinningPositions.head) % 2 == 1) {
                                     weightedWinningPositionsWhite *=
                                         // this is a "sure win" in this column!
-                                        (board.rows - (row - whiteWinningPositions.head)) * 100
+                                        (board.rows - (row - whiteWinningPositions.head)) * 10
                                     whiteWinningPositions = row :: whiteWinningPositions
                                 }
                             }
                         }
                         else if (blackWinningPositions.tail.isEmpty) {
                             if ((row - blackWinningPositions.head) % 2 == 0 && whiteWinningPositions.isEmpty) {
-                                weightedWinningPositionsWhite *= 10
+                                weightedWinningPositionsWhite *= 2
                                 whiteWinningPositions = row :: whiteWinningPositions
                             } // else... a position immediately above a winning position of black is only of 
                             // value if we can force the other player to block/to give up its winning position 
@@ -780,24 +808,24 @@ object ConnectFourGame {
                     }
 
                     val potentialPIBlack = playerInfo.update(squareMask, Player.Black)
-                    if (determineState(squareId, potentialOI, potentialPIBlack).hasWinner) {
+                    if (determineStateOfPotentialBoard(squareId, potentialOI, potentialPIBlack).hasWinner) {
                         if (whiteWinningPositions.isEmpty) {
                             if (blackWinningPositions.isEmpty) {
-                                weightedWinningPositionsBlack *= 10
+                                weightedWinningPositionsBlack *= 2
                                 blackWinningPositions = row :: blackWinningPositions
                             }
                             else {
                                 if (blackWinningPositions.tail.isEmpty &&
                                     (row - blackWinningPositions.head) % 2 == 1) {
                                     weightedWinningPositionsBlack +=
-                                        (board.rows - (row - blackWinningPositions.head)) * 100
+                                        (board.rows - (row - blackWinningPositions.head)) * 10
                                     blackWinningPositions = row :: blackWinningPositions
                                 }
                             }
                         }
                         else if (whiteWinningPositions.tail.isEmpty) {
                             if ((row - whiteWinningPositions.head) % 2 == 0 && blackWinningPositions.isEmpty) {
-                                weightedWinningPositionsBlack *= 10
+                                weightedWinningPositionsBlack *= 2
                                 blackWinningPositions = row :: blackWinningPositions
                             }
                         }
