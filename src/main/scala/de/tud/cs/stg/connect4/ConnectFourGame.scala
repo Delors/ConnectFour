@@ -753,8 +753,8 @@ object ConnectFourGame {
         val maxRowIndex = board.maxRowIndex
 
         var sumOfSquareWeights = 0
-        var weightedWinningPositionsWhite = board.sumOfSquareWeightsTimeEssentialSquareWeights
-        var weightedWinningPositionsBlack = board.sumOfSquareWeightsTimeEssentialSquareWeights
+        var weightedWinningPositionsWhite, weightedWinningPositionsBlack =
+            board.sumOfSquareWeightsTimeEssentialSquareWeights
 
         var col = board.cols - 1
         do {
