@@ -57,6 +57,8 @@ class Player private (val id: Int) extends AnyVal {
       * width font.
       */
     def symbol: String = if (id == 0) "○" else "◼"
+        
+    def opponent : Player = if(isWhite) Player.Black else Player.White    
 
     /**
       * Returns the name of the player ("white" or "black").
