@@ -325,6 +325,35 @@ class Board( final val rows: Int, final val cols: Int) {
     }
 
     /**
+      * Determines the state of the game given the game state encoded by `occpuiedInfo` and  `playerInfo`.
+      *
+      * The result is only well defined iff the array of masks contains all masks related to the last move(s).
+      *
+      * ==Note==
+      * Every call to this method (re)analyses the given board.
+      */
+    final def determineState(
+        allMasks: Array[Mask],
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): State = {
+
+        // 1. based on the given masks, check if we can find a line of four connected men 
+        val allMasksCount = allMasks.size
+        var m = 0
+        do {
+            val mask = allMasks(m)
+            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
+            m += 1
+        } while (m < allMasksCount)
+
+        // 2. check if the game is finished or not yet decided 
+        if (occupiedInfo.areOccupied(topRowMask))
+            State.Drawn
+        else
+            State.NotFinished
+    }
+
+    /**
       * Returns the id of the square selected by the given mask.
       *
       * ==Prerequisite==
