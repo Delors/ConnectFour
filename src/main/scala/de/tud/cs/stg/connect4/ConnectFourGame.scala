@@ -139,23 +139,31 @@ class ConnectFourGame(
     /**
       * Iterator that returns the masks that selects the squares where the current player is allowed to put
       * its next man given the specific board configuration.
+      * 
+      * The iterator will start with the column in the middle and next it will return the column to the left, 
+      * the right, the left and so on. I.e., if we have seven columns, the order in which the columns are 
+      * tested for free squares and returned if so is: 3,2,4,1,5,0,6.
       */
     protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
 
-            private var col = (board.cols / 2) - 1
-            private var count = board.cols
+            private var col = -1
+            private var count = 0
 
             private def advance() {
+                // if we have 7 columns, the sequence: 3+0,3-1,3+1,3-2,3+2,3-3,3+3 is generated
+                val cols = board.cols
                 do {
-                    count -= 1
-                    col = (col + 1) % board.cols
-                } while (occupiedInfo.areOccupied(Mask(board.upperLeftSquareMask.value << col)) && count >= 0)
+                    this.count += 1
+                    val count = this.count
+                    col = (cols / 2) + (if ((count % 2) == 0) -(count / 2) else count / 2)
+                } while (count <= board.cols &&
+                    occupiedInfo.areOccupied(Mask(board.upperLeftSquareMask.value << col)))
             }
 
             advance()
 
-            def hasNext(): Boolean = count >= 0
+            def hasNext(): Boolean = count <= board.cols
 
             def next(): Mask = {
                 val columnMask = board.columnMasks(col)
@@ -186,7 +194,7 @@ class ConnectFourGame(
             if (determineState(move, updatedOccupiedInfo, playerInfo.update(move)).hasWinner) {
                 return Iterator.single(move)
             }
-            else if (preventImmediateLooseMove.isIllegal && // <= just an optimization - the identification of a second move that prevents an immediate loss is not helpful
+            else if (preventImmediateLooseMove.isIllegal && // <= Optimization - the identification of a second move that prevents an immediate loss is not helpful
                 determineState(
                     move,
                     updatedOccupiedInfo,
@@ -198,6 +206,7 @@ class ConnectFourGame(
                 otherMoves = move :: otherMoves
             }
         } while (it.hasNext)
+            
         if (preventImmediateLooseMove.isLegal)
             return Iterator.single(preventImmediateLooseMove)
 
