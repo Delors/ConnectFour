@@ -67,6 +67,16 @@ class Mask private (val value: Long) extends AnyVal {
     def isSet(squareId: Int): Boolean = (value & (1l << squareId)) != 0l
 
     /**
+      * True if this mask does not represent a legal square mask.
+      */
+    def isIllegal = this.value == Mask.Illegal.value
+
+    /**
+      * True if this mask represents a legal square mask.
+      */
+    def isLegal = this.value != Mask.Illegal.value
+
+    /**
       * Tests is all squares identified by the other mask are set for this mask.
       */
     def areSet(other: Mask): Boolean = (this.value & other.value) == other.value
@@ -107,6 +117,11 @@ object Mask {
       * A mask that selects no square.
       */
     val Empty = new Mask(0l)
+
+    /**
+      * A mask that is not legal and hence can be distinguished from all legal masks.
+      */
+    val Illegal = new Mask(-1l)
 
     /**
       * A mask that selects all squares on the current board.
