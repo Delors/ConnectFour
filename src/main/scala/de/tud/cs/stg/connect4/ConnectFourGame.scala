@@ -173,6 +173,37 @@ class ConnectFourGame(
         }
     }
 
+    protected[connect4] def nextMovesWithKillerMoveIdentification(
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): scala.collection.Iterator[Mask] = {
+
+        val it = nextMoves(occupiedInfo)
+        var preventImmediateLooseMove: Mask = Mask.Illegal
+        var otherMoves: List[Mask] = List()
+        do {
+            val move = it.next
+            val updatedOccupiedInfo = occupiedInfo.update(move)
+            if (determineState(move, updatedOccupiedInfo, playerInfo.update(move)).hasWinner) {
+                return Iterator.single(move)
+            }
+            else if (preventImmediateLooseMove.isIllegal && // <= just an optimization - the identification of a second move that prevents an immediate loss is not helpful
+                determineState(
+                    move,
+                    updatedOccupiedInfo,
+                    playerInfo.update(move, playerInfo.turnOf.opponent)).hasWinner) {
+                // we can not immediately return this result as there may also be a winning move 
+                preventImmediateLooseMove = move
+            }
+            else {
+                otherMoves = move :: otherMoves
+            }
+        } while (it.hasNext)
+        if (preventImmediateLooseMove.isLegal)
+            return Iterator.single(preventImmediateLooseMove)
+
+        otherMoves.reverseIterator
+    }
+
     /**
       * Returns `Some(squareId)` of the lowest square in the respective column that is free or `None`
       * otherwise.
@@ -254,36 +285,10 @@ class ConnectFourGame(
         lastMove: Mask,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): State =
-        determineState(board.masksForConnect4CheckForSquare(board.squareId(lastMove)), occupiedInfo, playerInfo)
-
-    /**
-      * Determines the state of the game given the game state encoded by `occpuiedInfo` and  `playerInfo`.
-      *
-      * The result is only well defined iff the array of masks contains all masks related to the last move(s).
-      *
-      * ==Note==
-      * Every call to this method (re)analyses the given board.
-      */
-    protected[connect4] def determineState(
-        allMasks: Array[Mask],
-        occupiedInfo: OccupiedInfo,
-        playerInfo: PlayerInfo): State = {
-
-        // 1. based on the given masks, check if we can find a line of four connected men 
-        val allMasksCount = allMasks.size
-        var m = 0
-        do {
-            val mask = allMasks(m)
-            if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
-            m += 1
-        } while (m < allMasksCount)
-
-        // 2. check if the game is finished or not yet decided 
-        if (occupiedInfo.areOccupied(board.topRowMask))
-            State.Drawn
-        else
-            State.NotFinished
-    }
+        board.determineState(
+            board.masksForConnect4CheckForSquare(board.squareId(lastMove)),
+            occupiedInfo,
+            playerInfo)
 
     /**
       * Assesses the current board form the perspective of the current player. The value will be between
@@ -336,7 +341,11 @@ class ConnectFourGame(
         }
 
         // 3. perform a recursive call to this method to continue exploring the search tree
-        val nextMoves = this.nextMoves(occupiedInfo)
+        val nextMoves =
+            if (depth > 1)
+                this.nextMovesWithKillerMoveIdentification(occupiedInfo, playerInfo)
+            else
+                this.nextMoves(occupiedInfo)
         var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
         var newAlpha = alpha
         do { // for each legal move...
@@ -407,7 +416,8 @@ class ConnectFourGame(
 
         val maxDepth = aiStrength * 2
 
-        val nextMoves = this.nextMoves()
+        //val nextMoves = this.nextMoves()
+        val nextMoves = this.nextMovesWithKillerMoveIdentification(this.occupiedInfo, this.playerInfo)
         var bestMove = nextMoves.next()
         var alpha = evaluateMove(bestMove, maxDepth - 1, -Int.MaxValue, Int.MaxValue)
         while (nextMoves.hasNext) { // for each legal move...
@@ -747,28 +757,6 @@ object ConnectFourGame {
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): Int = {
 
-        def determineStateOfPotentialBoard(
-            lastMove: Int /*Square Id*/ ,
-            occupiedInfo: OccupiedInfo,
-            playerInfo: PlayerInfo): State = {
-            val allMasks: Array[Mask] = board.masksForConnect4CheckForSquare(lastMove)
-
-            // 1. check if we can find a line of four connected men related to the given potential board
-            val allMasksCount = allMasks.size
-            var m = 0
-            do {
-                val mask = allMasks(m)
-                if (occupiedInfo.areOccupied(mask) && playerInfo.belongToSamePlayer(mask)) return State(mask)
-                m += 1
-            } while (m < allMasksCount)
-
-            // 2. check if the game is finished or not yet decided 
-            if (occupiedInfo.areOccupied(board.topRowMask))
-                State.Drawn
-            else
-                State.NotFinished
-        }
-
         val maxRowIndex = board.maxRowIndex
 
         var sumOfSquareWeights = 0
@@ -799,7 +787,7 @@ object ConnectFourGame {
                     val potentialOI = occupiedInfo.update(squareMask)
 
                     val potentialPIWhite = playerInfo.update(squareMask, Player.White)
-                    if (determineStateOfPotentialBoard(squareId, potentialOI, potentialPIWhite).hasWinner) {
+                    if (board.determineState(board.masksForConnect4CheckForSquare(squareId), potentialOI, potentialPIWhite).hasWinner) {
                         if (blackWinningPositions.isEmpty) {
                             if (whiteWinningPositions.isEmpty) {
                                 weightedWinningPositionsWhite *= 2
@@ -827,7 +815,7 @@ object ConnectFourGame {
                     }
 
                     val potentialPIBlack = playerInfo.update(squareMask, Player.Black)
-                    if (determineStateOfPotentialBoard(squareId, potentialOI, potentialPIBlack).hasWinner) {
+                    if (board.determineState(board.masksForConnect4CheckForSquare(squareId), potentialOI, potentialPIBlack).hasWinner) {
                         if (whiteWinningPositions.isEmpty) {
                             if (blackWinningPositions.isEmpty) {
                                 weightedWinningPositionsBlack *= 2
