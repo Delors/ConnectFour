@@ -328,7 +328,7 @@ class Board( final val rows: Int, final val cols: Int) {
       * Returns the id of the square selected by the given mask.
       *
       * ==Prerequisite==
-      * The given mask must indentify exactly one square.
+      * The given mask must identify exactly one square.
       */
     final def squareId(singleSquareMask: Mask): Int = {
         var upperBound = maxSquareIndex
