@@ -109,11 +109,6 @@ object Mask {
     val Empty = new Mask(0l)
 
     /**
-      * A mask that is not legal and hence can be distinguished from all legal masks.
-      */
-    val Illegal = new Mask(-1l)
-
-    /**
       * A mask that selects all squares on the current board.
       */
     def selectAll(squares: Int): Mask = new Mask((1l << squares) - 1)

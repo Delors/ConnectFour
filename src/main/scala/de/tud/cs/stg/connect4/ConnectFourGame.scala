@@ -98,7 +98,7 @@ import scala.collection.mutable.Buffer
   * bit is set in the first long value.
   * Additionally, the information is stored which player has to make the next move (using the most
   * significant bit (the 64th) of the second long value). The other bits of the long values are not used.
-  * To make the code easily comprehensible, two value classes are defined that wrap the long values and
+  * To make the code easily comprehensible, two '''value classes''' are defined that wrap the long values and
   * implement the required functionality ([[de.tud.cs.stg.connect4.OccupiedInfo]] and
   * [[de.tud.cs.stg.connect4.PlayerInfo]]).
   *
@@ -116,9 +116,10 @@ import scala.collection.mutable.Buffer
   *     (`-Int.MaxValue`..`Int.MaxValue`) unless the white or the black player will definitively win. In that
   *     case the value is either `Int.MaxValue` or `-Int.MaxValue`.
   *     '''The value Int.MinValue == -Int.MaxValue-1 is reserved for internal purposes'''.
+  * @param occupiedSquares The number of occupied squares.
+  * @param occupiedInfo Encodes which squares are occupied.
   * @param playerInfo In combination with `occupiedInfo` encodes the information which player occupies a
   *     square and also encodes the information which player has to make the next move.
-  * @param occupiedInfo Encodes which squares are occupied.
   *
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
@@ -131,14 +132,13 @@ class ConnectFourGame(
 
     /**
       * Iterates over the masks that select the squares where the current player is allowed to put its
-      * next man. We always start with the mask that selects the lowest free square in the "middle column"
-      * as this is often the most relevant one (move ordering).
+      * next man.
       */
     def nextMoves(): scala.collection.Iterator[Mask] = nextMoves(this.occupiedInfo)
 
     /**
       * Iterator that returns the masks that selects the squares where the current player is allowed to put
-      * its next man given the a specific board configuration.
+      * its next man given the specific board configuration.
       */
     protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
@@ -213,7 +213,7 @@ class ConnectFourGame(
       *
       * ==Prerequisites==
       * The squares below the square have to be occupied and the specified square has to be empty.
-      * However, both is not checked.
+      * However, both is not checked for performance reasons.
       *
       * @param singleSquareMask The mask that masks the square where the next man is put.
       * @return The updated game object.
@@ -231,8 +231,8 @@ class ConnectFourGame(
       * Either returns:
       *  - DRAWN (0l) if the game is finished (i.e., all squares are occupied), but no player has won.
       *  - NOT_FINISHED (-1l) if no player has won so far and some squares are empty.
-      *  - a mask (some positive value >= 15 (00000....00001111)) that identifies the squares with
-      *     the four connected men.
+      *  - State(Mask) where the mask (some positive value >= 15 (00000....00001111)) identifies the squares
+      *     with the four connected men.
       *
       * The result is only well defined iff the game was not already finished before the last move.
       *
@@ -259,17 +259,17 @@ class ConnectFourGame(
     /**
       * Determines the state of the game given the game state encoded by `occpuiedInfo` and  `playerInfo`.
       *
-      * The result is only well defined iff the game was not already finished before the last move.
+      * The result is only well defined iff the array of masks contains all masks related to the last move(s).
       *
       * ==Note==
-      * Every call to this method (re)analyses the board given the last move
+      * Every call to this method (re)analyses the given board.
       */
     protected[connect4] def determineState(
         allMasks: Array[Mask],
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): State = {
 
-        // 1. check if we can find a line of four connected men related to the last move
+        // 1. based on the given masks, check if we can find a line of four connected men 
         val allMasksCount = allMasks.size
         var m = 0
         do {
@@ -300,11 +300,12 @@ class ConnectFourGame(
       * Before the immediate last move the game was not already finished. I.e., the return value is
       * not defined when the game was already won by a player before the last move.
       *
+      * @param occupiedSquares The number of occupied squares.
       * @param occupiedInfo The information which squares are currently occupied.
       * @param playerInfo The information which player occupies a specific square if the square is occupied at
       * 	all.
       * @param lastMove The last move that was made and which led to the current game state.
-      * @param depth The remaining number of levels of the search tree that should be explored.
+      * @param depth The remaining number of levels of the search tree that may be explored.
       * @param alpha The best value that the current player can achieve (Initially `-Int.MaxValue`).
       * @param beta The best value that the opponent can achieve (Initially `Int.MaxValue`).
       */
@@ -321,7 +322,7 @@ class ConnectFourGame(
         // We can use the negamax algorithm because we have a zero-sum two player game where we strictly 
         // alternate between the players and the evaluation function is symmetric. (max(a,b) = -min(-a,-b)).
 
-        // 1. check if the game is finished
+        // 1. check if the game is finished (terminal test)
         val state = determineState(lastMove, occupiedInfo, playerInfo)
         if (state.isDrawn) return 0
         if (state.hasWinner /* <=> the player who made the last move has won */ ) return ConnectFourGame.Lost
@@ -334,13 +335,14 @@ class ConnectFourGame(
                 return -score(board, occupiedSquares, occupiedInfo, playerInfo)
         }
 
-        // 3. performs a recursive call to this method to continue exploring the search tree
-        var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
+        // 3. perform a recursive call to this method to continue exploring the search tree
         val nextMoves = this.nextMoves(occupiedInfo)
+        var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
         var newAlpha = alpha
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next
             val value = evaluateMove(nextMove, occupiedSquares, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha)
+            // fail-soft alpha-beta pruning
             if (value >= beta) {
                 // there will be no better move (we don't mind if there are other equally good moves)
                 return value;
@@ -380,7 +382,8 @@ class ConnectFourGame(
       * Evaluates the given move w.r.t. the current game state.
       *
       * ==Note==
-      * This method was introduced as a hook to enable subclasses to intercept the initial call to `negamax`.
+      * This method serves as a hook that enables subclasses to intercept the initial call to `negamax`
+      * done by the `proposeMove` method.
       */
     protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
         -negamax(
@@ -405,27 +408,26 @@ class ConnectFourGame(
         val maxDepth = aiStrength * 2
 
         val nextMoves = this.nextMoves()
-        var bestMove: Mask = Mask.Illegal
-        var alpha = -Int.MaxValue
-        do { // for each legal move...
+        var bestMove = nextMoves.next()
+        var alpha = evaluateMove(bestMove, maxDepth - 1, -Int.MaxValue, Int.MaxValue)
+        while (nextMoves.hasNext) { // for each legal move...
             val nextMove: Mask = nextMoves.next()
             val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
-
             // Beware: the negamax is implemented using fail-soft alpha-beta-pruning; hence, if we would
             // choose a move with a value that is equal to the value of a previously evaluated move, it
-            // could lead to a move that is actually advantageous for the opponent because a relevant part of
-            // the search true was cut. 
-            // Therefore, it is not directly possible to evaluate all equally good moves and we have to
+            // could lead to a move that is actually advantageous for the opponent because a the part of
+            // the search tree that was cut may contain a move that is '''even more'' advantageous.
+            // Therefore, it is not directly possible to get all equally good moves and we have to
             // use ">" here instead of ">=".
-            if (value > alpha || bestMove == Mask.Illegal) {
+            if (value > alpha) {
                 bestMove = nextMove
                 alpha = value
             }
-        } while (nextMoves.hasNext)
+        }
 
         if (alpha == -Int.MaxValue && aiStrength > 2)
             // When the AI determines that it will always loose in the long run (when the opponent plays 
-            // perfectly) it may still be possible to prevent the opponent from winning immediately and
+            // perfectly) it may still be possible to prevent the opponent from winning immediately and,
             // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
             // a meaningful move, we simply reduce the number of levels we want to explore.
             proposeMove(math.max(1, aiStrength - 2))
@@ -479,7 +481,7 @@ class ConnectFourGame(
 }
 
 /**
-  * Factory object to create specific types of Connect Four games.
+  * Factory object to create specific types of ''Connect Four'' games.
   *
   * @author Michael Eichberg
   */
@@ -508,7 +510,7 @@ object ConnectFourGame {
         new ConnectFourGame(board, score)
 
     /**
-      * Creates a `Connect Four` game that prints out some debugging information.
+      * Creates a ''Connect Four'' game that prints out some debugging information.
       *
       * @param board The board used for playing connect four.
       * @param score The scoring function that will be used to score the leaf-nodes of the search tree that
@@ -554,9 +556,13 @@ object ConnectFourGame {
     }
 
     /**
-      * Creates a `ConnectFourGame` object that always prints out the search tree using Graphviz's Dot language.
+      * Creates a `ConnectFourGame` object that always prints out the search tree using Graphviz's Dot
+      * language.
       *
-      * @param board The board used for playing connect four.
+      * If you want to print out the search tree, you should limit the maximum depth of the search tree to
+      * something like 4 or 5.
+      *
+      * @param board The board used for playing ''Connect Four''.
       * @param score The heuristic scoring function that will be used to score the leaf-nodes of the search
       *     tree that are not final states.
       */
@@ -645,26 +651,39 @@ object ConnectFourGame {
     /**
       * A scoring function that assigns the same value to all boards.
       *
+      * ==Use Case==
       * This scoring function is primarily useful for testing purposes.
       */
-    def fixedScore(board: Board, occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo): Int = 0
+    def fixedScore(
+        board: Board,
+        occupiedSquares: Int,
+        occupiedInfo: OccupiedInfo,
+        playerInfo: PlayerInfo): Int = 0
 
     /**
-      * A scoring function that assigns a random value to the current board.
+      * A scoring function that assigns a random value to the given ''Connect Four'' board.
       *
-      * This scoring function is primarily useful for testing purposes.
+      * ==Use Case==
+      * This scoring function is primarily useful for testing purposes. I.e., to test whether some "real"
+      * scoring function is actually beneficial when compared to an ai that just drops a man randomly into
+      * some column which has some empty squares.
+      * Recall, that – if we do a deep exploration of the search tree – the minimax algorithm will still
+      * prevent the ai from doing moves that will lead to a situation where the ai will certainly loose. I.e.,
+      * a man is dropped into some random column only when no immediate threat or winning opportunity exists.
+      * However, using this scoring function the ai does not actively pursue the goal of building a winning
+      * position.
       */
-    def randomScore(): (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = {
-        val rng = new java.util.Random();
+    def randomScore(seed: Long = 1234567890l): (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int = {
+        val rng = new java.util.Random(seed);
         (board: Board, occupiedSquares: Int, occupiedInfo: OccupiedInfo, playerInfo: PlayerInfo) ⇒ {
             rng.nextInt(21) - 10
         }
     }
 
     /**
-      * Scores a board by considering the weight of the squares occupied by each player. This scoring
-      * function is simple and fast, but – in combination with a decent evaluation of the search tree – still
-      * makes up for a reasonable opponent.
+      * Scores a ''Connect Four'' board by considering the weight of the squares occupied by each player.
+      * This scoring function is simple and fast, but – in combination with a decent evaluation of the search
+      * tree – still makes up for a reasonable opponent.
       */
     def scoreBasedOnSquareWeights(
         board: Board,
@@ -734,7 +753,7 @@ object ConnectFourGame {
             playerInfo: PlayerInfo): State = {
             val allMasks: Array[Mask] = board.masksForConnect4CheckForSquare(lastMove)
 
-            // 1. check if we can find a line of four connected men related to the last move
+            // 1. check if we can find a line of four connected men related to the given potential board
             val allMasksCount = allMasks.size
             var m = 0
             do {
