@@ -150,8 +150,8 @@ object CLI extends scala.App {
         }
 
     do { // main loop
-        print("Strength of the ai [1..8](Default: 4(weak))?")
-        var aiStrength: Int = readIntValue(1, 8, 4)
+        print("Strength of the ai [1..9](Default: 4(weak))?")
+        var aiStrength: Int = readIntValue(1, 9, 4)
         println("The strength of the ai is set to "+aiStrength+".")
 
         playGame(connectFourGame, aiStrength)
