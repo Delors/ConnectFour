@@ -140,9 +140,9 @@ class ConnectFourGame(
       * Iterator that returns the masks that selects the squares where the current player is allowed to put
       * its next man given the specific board configuration.
       * 
-      * The iterator will start with the column in the middle and next it will return the column to the left, 
+      * The iterator will start with the column in the middle and will then return the column to the left, 
       * the right, the left and so on. I.e., if we have seven columns, the order in which the columns are 
-      * tested for free squares and returned if so is: 3,2,4,1,5,0,6.
+      * tested for free squares is: 3,2,4,1,5,0,6.
       */
     protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
         new Iterator[Mask] {
@@ -181,6 +181,12 @@ class ConnectFourGame(
         }
     }
 
+    /**
+     * If a move is identified that leads to an immediate win of the ''current player'' only that move is 
+     * returned. All other moves are pruned. If no winning move is identified, but a forced move is found; 
+     * i.e., a move that prevents the current player from immediately loosing the game, the iterator will
+     * only return that move. 
+     */
     protected[connect4] def nextMovesWithKillerMoveIdentification(
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): scala.collection.Iterator[Mask] = {
