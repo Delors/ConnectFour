@@ -423,13 +423,9 @@ class ConnectFourGame(
     /**
       * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
       *
-      * @param aiStrength The strength of the ai. The strength determines the number of rounds the
-      *     the ai looks ahead; a round consists of one move by each player. The `aiStrength` should be at
-      *     least 3 for a game that is not too easy.
+      * @param maxDepth The number of levels of the search tree that will be explored.
       */
-    def proposeMove(aiStrength: Int): Mask = {
-
-        val maxDepth = aiStrength * 2
+    def proposeMove(maxDepth: Int): Mask = {
 
         //val nextMoves = this.nextMoves()
         val nextMoves = this.nextMovesWithKillerMoveIdentification(this.occupiedInfo, this.playerInfo)
@@ -450,12 +446,12 @@ class ConnectFourGame(
             }
         }
 
-        if (alpha == -Int.MaxValue && aiStrength > 2)
+        if (alpha == -Int.MaxValue && maxDepth > 6)
             // When the AI determines that it will always loose in the long run (when the opponent plays 
             // perfectly) it may still be possible to prevent the opponent from winning immediately and,
             // hence, if the opponent does not play perfectly, to still win the game. However, to calculate
             // a meaningful move, we simply reduce the number of levels we want to explore.
-            proposeMove(math.max(1, aiStrength - 2))
+            proposeMove(math.max(1, maxDepth - 4))
         else
             bestMove
     }

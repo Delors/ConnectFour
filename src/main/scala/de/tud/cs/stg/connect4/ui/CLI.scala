@@ -49,6 +49,8 @@ object CLI extends scala.App {
     import java.lang.System.in
     import State._
 
+    final val Depths : Array[Int] = Array(2,4,6,8,10,12,16,20,24,28)
+    
     private def readCharacterValue() = {
         val value = in.read();
         if (value != '\n') println
@@ -68,24 +70,26 @@ object CLI extends scala.App {
       */
     def playGame(connectFourGame: ConnectFourGame, aiStrength: Int) {
         import connectFourGame._
-
-        def playerMove(connectFourGame: ConnectFourGame, aiStrength: Int): (ConnectFourGame, State) = {
+        
+        val maxDepth = Depths(aiStrength);
+        
+        def playerMove(connectFourGame: ConnectFourGame, maxDepth: Int): (ConnectFourGame, State) = {
             val state = connectFourGame.determineState
             if (state.isNotFinished) {
                 println(connectFourGame)
                 print("Choose column: ")
                 readCharacterValue() match {
                     case 'p' ⇒ { // let the ai make a proposal
-                        val proposal = connectFourGame.column(connectFourGame.proposeMove(aiStrength))
+                        val proposal = connectFourGame.column(connectFourGame.proposeMove(maxDepth))
                         println("\nProposal: "+proposal)
-                        return playerMove(connectFourGame, aiStrength)
+                        return playerMove(connectFourGame, maxDepth)
                     }
                     case 'm' ⇒ { // let the ai make the move
-                        return aiMove(connectFourGame.makeMove(connectFourGame.proposeMove(aiStrength)), aiStrength)
+                        return aiMove(connectFourGame.makeMove(connectFourGame.proposeMove(maxDepth)), maxDepth)
                     }
                     case c if c >= '0' && c < ('0' + connectFourGame.cols) ⇒ {
                         connectFourGame.lowestFreeSquareInColumn(c - '0') match {
-                            case Some(squareId) ⇒ return aiMove(connectFourGame.makeMove(Mask.forSquare(squareId)), aiStrength: Int)
+                            case Some(squareId) ⇒ return aiMove(connectFourGame.makeMove(Mask.forSquare(squareId)), maxDepth: Int)
                             case _              ⇒ println("The column has no empty square.")
                         }
                     }
@@ -96,21 +100,21 @@ object CLI extends scala.App {
                             "\tm - to let the ai make the next move for you.\n"+
                             "\t[0.."+connectFourGame.maxColIndex+"] - to drop a man in the respective column.")
                 }
-                return playerMove(connectFourGame, aiStrength)
+                return playerMove(connectFourGame, maxDepth)
             }
             else {
                 return (connectFourGame, state)
             }
         }
 
-        def aiMove(connectFourGame: ConnectFourGame, aiStrength: Int): (ConnectFourGame, State) = {
+        def aiMove(connectFourGame: ConnectFourGame, maxDepth: Int): (ConnectFourGame, State) = {
             val state = connectFourGame.determineState
             if (state.isNotFinished) {
                 val startTime = System.currentTimeMillis()
-                val theMove = connectFourGame.proposeMove(aiStrength)
+                val theMove = connectFourGame.proposeMove(maxDepth)
                 val requiredTime = (System.currentTimeMillis() - startTime) / 1000.0d
                 println("Found the move ("+connectFourGame.board.column(theMove)+") in: "+requiredTime+" secs.")
-                return playerMove(connectFourGame.makeMove(theMove), aiStrength)
+                return playerMove(connectFourGame.makeMove(theMove), maxDepth)
             }
             else {
                 return (connectFourGame, state)
@@ -119,9 +123,9 @@ object CLI extends scala.App {
 
         print("Do you want to start (y/n - Default: n)?")
         (if (readCharacterValue() == 'y')
-            playerMove(connectFourGame, aiStrength)
+            playerMove(connectFourGame, maxDepth)
         else
-            aiMove(connectFourGame, aiStrength)
+            aiMove(connectFourGame, maxDepth)
         ) match {
             case (_, NotFinished) ⇒ println("Game aborted.")
             case (_, Drawn)       ⇒ println("This game is drawn.")
@@ -152,7 +156,7 @@ object CLI extends scala.App {
     do { // main loop
         print("Strength of the ai [1..9](Default: 4(weak))?")
         var aiStrength: Int = readIntValue(1, 9, 4)
-        println("The strength of the ai is set to "+aiStrength+".")
+        println("The number of moves the ai will look ahead "+Depths(aiStrength)+".")
 
         playGame(connectFourGame, aiStrength)
     } while ({ print("Do you want to play a game (y/n) (Default: n)?"); readCharacterValue() == 'y' })
