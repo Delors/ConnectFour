@@ -231,7 +231,7 @@ class ConnectFourGame(
       * @return The id of the lowest square in the given column that is free.
       */
     def lowestFreeSquareInColumn(column: Int): Option[Int] =
-        (column to board.squares by board.cols) collectFirst ({
+        (column until board.squares by board.cols) collectFirst ({
             case squareId if !occupiedInfo.isOccupied(squareId) ⇒ squareId
         })
 
