@@ -49,7 +49,7 @@ object CLI extends scala.App {
     import java.lang.System.in
     import State._
 
-    final val Depths : Array[Int] = Array(2,4,6,8,10,12,16,20,24,28)
+    final val Depths : Array[Int] = Array(2,4,6,8,10,12,16,20,24,56)
     
     private def readCharacterValue() = {
         val value = in.read();
@@ -156,7 +156,7 @@ object CLI extends scala.App {
     do { // main loop
         print("Strength of the ai [1..9](Default: 4(weak))?")
         var aiStrength: Int = readIntValue(1, 9, 4)
-        println("The number of moves the ai will look ahead "+Depths(aiStrength)+".")
+        println("The maximum number of moves the ai will look ahead "+Depths(aiStrength)+".")
 
         playGame(connectFourGame, aiStrength)
     } while ({ print("Do you want to play a game (y/n) (Default: n)?"); readCharacterValue() == 'y' })
