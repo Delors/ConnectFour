@@ -396,11 +396,62 @@ class ConnectFourGame(
         alpha: Int,
         beta: Int): Int = {
 
-        -negamax(occupiedSquares + 1,
-            occupiedInfo.update(nextMove),
-            playerInfo.update(nextMove),
+        val updatedOccupiedInfo = occupiedInfo.update(nextMove)
+        val updatedPlayerInfo = playerInfo.update(nextMove)
+
+        def callNegamax(): Int = -negamax(occupiedSquares + 1,
+            updatedOccupiedInfo, updatedPlayerInfo,
             nextMove, depth, alpha, beta)
+
+        def updateCache(): Int = {
+            val score = callNegamax()
+            cache.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+            score
+        }
+
+        if (occupiedSquares - 3 >= this.occupiedSquares && depth > 2) {
+            // caching makes sense only for nodes that are on at least the third level in the search tree;
+            // i.e., only after a move of the current player, the opponent and another move of the current player
+            // the board may be identical to a previously seen board
+            cache.get(updatedOccupiedInfo, updatedPlayerInfo) match {
+//                case Some((cachedAlpha, cachedBeta, cScore)) if (alpha >= cachedAlpha && beta <= cachedBeta) ⇒ {
+//                    successfulCacheLookups = successfulCacheLookups + 1;
+//                    cScore
+//
+//                }
+                                case Some((cachedAlpha, cachedBeta, cScore)) ⇒ {
+                                    if (alpha >= cachedAlpha && beta <= cachedBeta) {
+                                        successfulCacheLookups = successfulCacheLookups + 1;
+                                        cScore
+                                    }
+                                    else {
+                                        boundsFailure += 1
+//                                        if (alpha < cachedAlpha && beta > cachedBeta) {
+//                                          //  println("replace...")
+//                                                                                    updateCache()
+//                                        } else {
+//                                            callNegamax()
+//                                        }
+                                        
+                                        updateCache()
+                                    }
+                                }
+                case _ ⇒
+                    updateCache()
+            }
+        }
+        else
+            callNegamax()
+
+//        -negamax(occupiedSquares + 1,
+//            occupiedInfo.update(nextMove),
+//            playerInfo.update(nextMove),
+//            nextMove, depth, alpha, beta)
     }
+
+    val cache = scala.collection.mutable.Map[(OccupiedInfo, PlayerInfo), (Int, Int, Int)]()
+    var successfulCacheLookups = 0
+    var boundsFailure = 0
 
     /**
       * Evaluates the given move w.r.t. the current game state.
@@ -427,7 +478,10 @@ class ConnectFourGame(
       */
     def proposeMove(maxDepth: Int): Mask = {
 
-        //val nextMoves = this.nextMoves()
+        cache.clear()
+        successfulCacheLookups = 0
+        boundsFailure = 0
+
         val nextMoves = this.nextMovesWithKillerMoveIdentification(this.occupiedInfo, this.playerInfo)
         var bestMove = nextMoves.next()
         var alpha = evaluateMove(bestMove, maxDepth - 1, -Int.MaxValue, Int.MaxValue)
@@ -446,6 +500,8 @@ class ConnectFourGame(
             }
         }
 
+        println("cache size: "+cache.size+" successful lookups: "+successfulCacheLookups+" bounds failures: "+boundsFailure);
+
         if (alpha == -Int.MaxValue && maxDepth > 2) {
             // When the AI determines that it will always loose in the long run (when the opponent plays 
             // perfectly) it may still be possible to prevent the opponent from winning immediately and,
@@ -454,8 +510,8 @@ class ConnectFourGame(
             // explore.
             if (maxDepth > 6)
                 proposeMove(6)
-            else 
-                proposeMove(2)                
+            else
+                proposeMove(2)
         }
         else
             bestMove
