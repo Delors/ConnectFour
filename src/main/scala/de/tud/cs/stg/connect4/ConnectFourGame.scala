@@ -365,7 +365,9 @@ class ConnectFourGame(
         var newAlpha = alpha
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next
-            val value = evaluateMove(nextMove, occupiedSquares, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha)
+            val value = evaluateMove(
+                nextMove, occupiedSquares, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha
+            )
             // fail-soft alpha-beta pruning
             if (value >= beta) {
                 // there will be no better move (we don't mind if there are other equally good moves)
@@ -381,7 +383,7 @@ class ConnectFourGame(
     }
 
     /**
-      * Evaluates the given move w.r.t. the given game state. This method is used by the `negamax` when
+      * Evaluates the given move w.r.t. the given game state. This method is used by the `negamax` method when
       * exploring the search tree.
       *
       * ==Note==
@@ -403,55 +405,81 @@ class ConnectFourGame(
             updatedOccupiedInfo, updatedPlayerInfo,
             nextMove, depth, alpha, beta)
 
-        def updateCache(): Int = {
+        def putIntoCache(): Int = {
             val score = callNegamax()
-            cache.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+            // if the score is equal to Won or Lost then the score would not change if the calculation would
+            // be repeated with relaxed alpha and beta bounds, hence, we can cache the score using relaxed 
+            // bounds
+            if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won)
+                cache.update(
+                    (updatedOccupiedInfo, updatedPlayerInfo),
+                    (ConnectFourGame.Lost, ConnectFourGame.Won, score))
+            else
+                cache.update(
+                    (updatedOccupiedInfo, updatedPlayerInfo),
+                    (alpha, beta, score))
             score
         }
+        // improving caching: 
+        // - only cache configurations where stones are put in at least two columns and have either at least two stones per column or more than two columns
+        // - mirroring the configuration
 
-        if (occupiedSquares - 3 >= this.occupiedSquares && depth > 2) {
+        if (occupiedSquares - 3 >= this.occupiedSquares && depth > 1) {
             // caching makes sense only for nodes that are on at least the third level in the search tree;
             // i.e., only after a move of the current player, the opponent and another move of the current player
             // the board may be identical to a previously seen board
+
             cache.get(updatedOccupiedInfo, updatedPlayerInfo) match {
-//                case Some((cachedAlpha, cachedBeta, cScore)) if (alpha >= cachedAlpha && beta <= cachedBeta) ⇒ {
-//                    successfulCacheLookups = successfulCacheLookups + 1;
-//                    cScore
-//
-//                }
-                                case Some((cachedAlpha, cachedBeta, cScore)) ⇒ {
-                                    if (alpha >= cachedAlpha && beta <= cachedBeta) {
-                                        successfulCacheLookups = successfulCacheLookups + 1;
-                                        cScore
-                                    }
-                                    else {
-                                        boundsFailure += 1
-//                                        if (alpha < cachedAlpha && beta > cachedBeta) {
-//                                          //  println("replace...")
-//                                                                                    updateCache()
-//                                        } else {
-//                                            callNegamax()
-//                                        }
-                                        
-                                        updateCache()
-                                    }
-                                }
-                case _ ⇒
-                    updateCache()
+                case Some((cachedAlpha, cachedBeta, cachedScore)) ⇒ {
+                    if (alpha >= cachedAlpha && beta <= cachedBeta) {
+                        successfulCacheLookups = successfulCacheLookups + 1;
+
+                        cachedScore
+                    }
+                    else {
+                        unsuccessfulCacheLookup += 1
+                        // The lookup was not directly successful, hence, we have to calculate the score.
+                        // After that, however, we may still be able to use some of the cached bounds to
+                        // calculate new relaxed bounds.
+
+                        val score = callNegamax()
+                        if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won) {
+                            cache.update(
+                                (updatedOccupiedInfo, updatedPlayerInfo),
+                                (ConnectFourGame.Lost, ConnectFourGame.Won, score))
+                        }
+                        else if (score == cachedScore && (alpha < cachedBeta || cachedAlpha < beta)) {
+                            // the bounds are overlapping and the score was identical, hence, we can
+                            // use the outer most bounds; i.e., we can relax the bounds
+                            cache.update(
+                                (updatedOccupiedInfo, updatedPlayerInfo),
+                                (Math.min(alpha, cachedAlpha), Math.max(beta, cachedBeta), score))
+                        }
+                        else {
+                            // We update the cache, as tests have shown that this is more effective than
+                            // leaving the old value in the cache.
+                            // (A more detailed analysis would be helpful; e.g., whether we should use 
+                            // multi maps...)
+                            cache.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+                        }
+                        score
+                    }
+                }
+                case _ ⇒ {
+                    putIntoCache()
+                }
+
             }
         }
         else
             callNegamax()
-
-//        -negamax(occupiedSquares + 1,
-//            occupiedInfo.update(nextMove),
-//            playerInfo.update(nextMove),
-//            nextMove, depth, alpha, beta)
     }
 
-    val cache = scala.collection.mutable.Map[(OccupiedInfo, PlayerInfo), (Int, Int, Int)]()
-    var successfulCacheLookups = 0
-    var boundsFailure = 0
+    protected[connect4] val cache = scala.collection.mutable.Map[(OccupiedInfo, PlayerInfo), (Int, Int, Int)]()
+    protected[connect4] var successfulCacheLookups = 0
+    protected[connect4] var unsuccessfulCacheLookup = 0
+    
+    
 
     /**
       * Evaluates the given move w.r.t. the current game state.
@@ -480,7 +508,7 @@ class ConnectFourGame(
 
         cache.clear()
         successfulCacheLookups = 0
-        boundsFailure = 0
+        unsuccessfulCacheLookup = 0
 
         val nextMoves = this.nextMovesWithKillerMoveIdentification(this.occupiedInfo, this.playerInfo)
         var bestMove = nextMoves.next()
@@ -500,7 +528,7 @@ class ConnectFourGame(
             }
         }
 
-        println("cache size: "+cache.size+" successful lookups: "+successfulCacheLookups+" bounds failures: "+boundsFailure);
+        println("cache size: "+cache.size+" successful lookups: "+successfulCacheLookups+" bounds failures: "+unsuccessfulCacheLookup);
 
         if (alpha == -Int.MaxValue && maxDepth > 2) {
             // When the AI determines that it will always loose in the long run (when the opponent plays 
