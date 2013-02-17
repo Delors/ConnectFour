@@ -330,6 +330,7 @@ class ConnectFourGame(
       * @param beta The best value that the opponent can achieve (Initially `Int.MaxValue`).
       */
     protected[connect4] def negamax(
+        cacheManager: CacheManager,
         occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo,
@@ -366,7 +367,9 @@ class ConnectFourGame(
         do { // for each legal move...
             val nextMove: Mask = nextMoves.next
             val value = evaluateMove(
-                nextMove, occupiedSquares, occupiedInfo, playerInfo, depth - 1, -beta, -newAlpha
+                cacheManager,
+                nextMove, occupiedSquares, occupiedInfo, playerInfo,
+                depth - 1, -beta, -newAlpha
             )
             // fail-soft alpha-beta pruning
             if (value >= beta) {
@@ -382,6 +385,148 @@ class ConnectFourGame(
         valueOfBestMove
     }
 
+    import scala.collection.mutable.Map;
+
+    protected[connect4] trait CacheManager {
+
+        type Configuration = (OccupiedInfo, PlayerInfo)
+
+        type CurrentScore = (Int, Int, Int) /* alpha,beta,score*/
+
+        def update(configuration: Configuration, score: CurrentScore): Unit
+
+        def get(configuration: Configuration): Option[CurrentScore]
+
+        def successfulLookups(): Int
+
+        def incSuccessfulLookups(): Unit
+
+        def unsuccessfulLookups(): Int
+
+        def incUnsuccessfulLookups(): Unit
+
+        def nextMove(move: Mask): CacheManager
+
+        /**
+          * Returns true if caching (caching the configuration/trying to look up a configuration in the cache)
+          * potentially makes sense. I.e., it does not make sense to cache the node at the first level
+          * of the search tree, as there will never be a successful lookup.
+          */
+        def doCaching: Boolean
+
+    }
+
+    protected[connect4] class RootCacheManager extends CacheManager {
+
+        final val cache: Map[Configuration, CurrentScore] = Map()
+
+        private var successfulCacheLookups: Int = 0
+
+        private var unsuccessfulCacheLookups: Int = 0
+
+        def update(configuration: Configuration, value: CurrentScore): Unit =
+            cache.update(configuration, value)
+
+        def get(configuration: Configuration): Option[CurrentScore] =
+            cache.get(configuration)
+
+        def successfulLookups(): Int = this.successfulCacheLookups
+
+        def incSuccessfulLookups(): Unit = this.successfulCacheLookups += 1
+
+        def unsuccessfulLookups(): Int = this.unsuccessfulCacheLookups
+
+        def incUnsuccessfulLookups(): Unit = this.unsuccessfulCacheLookups += 1
+
+        def nextMove(move: Mask): CacheManager = {
+            new PreCachePhaseCacheManager(this, move)
+        }
+
+        def doCaching = false
+
+        final val inCachePhaseCacheManager = new DelegatingCacheManager {
+
+            def rootCacheManager: RootCacheManager = RootCacheManager.this
+
+            final def doCaching = {
+                true
+            }
+
+            def nextMove(move: Mask): CacheManager = sys.error("updating an InCachePhaseCacheManager is not meaningful")
+        }
+    }
+
+    protected[connect4] abstract class DelegatingCacheManager extends CacheManager {
+
+        def rootCacheManager: RootCacheManager
+
+        final def update(configuration: Configuration, score: CurrentScore): Unit = rootCacheManager.update(configuration, score)
+
+        final def get(configuration: Configuration): Option[CurrentScore] = rootCacheManager.get(configuration)
+
+        final def successfulLookups(): Int = rootCacheManager.successfulLookups
+
+        final def incSuccessfulLookups(): Unit = rootCacheManager.incSuccessfulLookups
+
+        final def unsuccessfulLookups(): Int = rootCacheManager.unsuccessfulLookups
+
+        final def incUnsuccessfulLookups(): Unit = rootCacheManager.incUnsuccessfulLookups
+
+    }
+
+    protected[connect4] class PreCachePhaseCacheManager(
+            final val rootCacheManager: RootCacheManager,
+            final val menInPrimaryColumn: Int,
+            final val initialMaskForPrimaryColumn: Mask,
+            final val menInSecondaryColumn: Int,
+            final val initialMaskForSecondaryColumn: Mask) extends DelegatingCacheManager {
+
+        def this(rootCacheManager: RootCacheManager, initialMove: Mask) {
+            this(
+                rootCacheManager,
+                1, initialMove,
+                0, Mask.Empty)
+        }
+
+        final def doCaching = {
+            false
+        }
+
+        def nextMove(move: Mask): CacheManager = {
+            if (board.isRowsAbove(initialMaskForPrimaryColumn, move, menInPrimaryColumn)) {
+                if (menInPrimaryColumn >= 1 && menInSecondaryColumn >= 2) {
+                    rootCacheManager.inCachePhaseCacheManager
+                }
+                else {
+                    new PreCachePhaseCacheManager(
+                        rootCacheManager,
+                        menInPrimaryColumn + 1, initialMaskForPrimaryColumn,
+                        menInSecondaryColumn, initialMaskForSecondaryColumn)
+                }
+            }
+            else if (menInSecondaryColumn == 0) {
+                new PreCachePhaseCacheManager(
+                    rootCacheManager,
+                    menInPrimaryColumn, initialMaskForPrimaryColumn,
+                    1, move)
+            }
+            else if (board.isRowsAbove(initialMaskForSecondaryColumn, move, menInSecondaryColumn)) {
+                if (menInPrimaryColumn >= 2 && menInSecondaryColumn >= 1) {
+                    rootCacheManager.inCachePhaseCacheManager
+                }
+                else {
+                    new PreCachePhaseCacheManager(
+                        rootCacheManager,
+                        menInPrimaryColumn, initialMaskForPrimaryColumn,
+                        menInSecondaryColumn + 1, initialMaskForSecondaryColumn)
+                }
+            }
+            else { // a stone is put in the third column 
+                rootCacheManager.inCachePhaseCacheManager
+            }
+        }
+    }
+
     /**
       * Evaluates the given move w.r.t. the given game state. This method is used by the `negamax` method when
       * exploring the search tree.
@@ -390,6 +535,7 @@ class ConnectFourGame(
       * This method was introduced as a hook to enable subclasses to intercept recursive calls to `negamax`.
       */
     protected[connect4] def evaluateMove(
+        cacheManager: CacheManager,
         nextMove: Mask,
         occupiedSquares: Int,
         occupiedInfo: OccupiedInfo,
@@ -401,85 +547,85 @@ class ConnectFourGame(
         val updatedOccupiedInfo = occupiedInfo.update(nextMove)
         val updatedPlayerInfo = playerInfo.update(nextMove)
 
-        def callNegamax(): Int = -negamax(occupiedSquares + 1,
-            updatedOccupiedInfo, updatedPlayerInfo,
-            nextMove, depth, alpha, beta)
+        def callNegamax(cacheManager: CacheManager): Int =
+            -negamax(
+                cacheManager,
+                occupiedSquares + 1, updatedOccupiedInfo, updatedPlayerInfo,
+                nextMove, depth, alpha, beta)
 
-        def putIntoCache(): Int = {
-            val score = callNegamax()
-            // if the score is equal to Won or Lost then the score would not change if the calculation would
-            // be repeated with relaxed alpha and beta bounds, hence, we can cache the score using relaxed 
-            // bounds
-            if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won)
-                cache.update(
-                    (updatedOccupiedInfo, updatedPlayerInfo),
-                    (ConnectFourGame.Lost, ConnectFourGame.Won, score))
-            else
-                cache.update(
-                    (updatedOccupiedInfo, updatedPlayerInfo),
-                    (alpha, beta, score))
-            score
-        }
-        // improving caching: 
-        // - only cache configurations where stones are put in at least two columns and have either at least two stones per column or more than two columns
-        // - mirroring the configuration
+        if (cacheManager.doCaching) {
 
-        if (occupiedSquares - 3 >= this.occupiedSquares && depth > 1) {
-            // caching makes sense only for nodes that are on at least the third level in the search tree;
-            // i.e., only after a move of the current player, the opponent and another move of the current player
-            // the board may be identical to a previously seen board
+            def putIntoCache(): Int = {
+                val score = callNegamax(cacheManager)
+                // if the score is equal to Won or Lost then the score would not change if the calculation would
+                // be repeated with relaxed alpha and beta bounds, hence, we can cache the score using relaxed 
+                // bounds
+                if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won)
+                    cacheManager.update(
+                        (updatedOccupiedInfo, updatedPlayerInfo),
+                        (ConnectFourGame.Lost, ConnectFourGame.Won, score))
+                else
+                    cacheManager.update(
+                        (updatedOccupiedInfo, updatedPlayerInfo),
+                        (alpha, beta, score))
+                score
+            }
 
-            cache.get(updatedOccupiedInfo, updatedPlayerInfo) match {
-                case Some((cachedAlpha, cachedBeta, cachedScore)) ⇒ {
-                    if (alpha >= cachedAlpha && beta <= cachedBeta) {
-                        successfulCacheLookups = successfulCacheLookups + 1;
+            if (depth > 1) {
 
-                        cachedScore
-                    }
-                    else {
-                        unsuccessfulCacheLookup += 1
-                        // The lookup was not directly successful, hence, we have to calculate the score.
-                        // After that, however, we may still be able to use some of the cached bounds to
-                        // calculate new relaxed bounds.
+                // caching makes sense only for nodes that are on at least the third level in the search tree;
+                // i.e., only after a move of the current player, the opponent and another move of the current player
+                // the board may be identical to a previously seen board
 
-                        val score = callNegamax()
-                        if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won) {
-                            cache.update(
-                                (updatedOccupiedInfo, updatedPlayerInfo),
-                                (ConnectFourGame.Lost, ConnectFourGame.Won, score))
-                        }
-                        else if (score == cachedScore && (alpha < cachedBeta || cachedAlpha < beta)) {
-                            // the bounds are overlapping and the score was identical, hence, we can
-                            // use the outer most bounds; i.e., we can relax the bounds
-                            cache.update(
-                                (updatedOccupiedInfo, updatedPlayerInfo),
-                                (Math.min(alpha, cachedAlpha), Math.max(beta, cachedBeta), score))
+                cacheManager.get(updatedOccupiedInfo, updatedPlayerInfo) match {
+                    case Some((cachedAlpha, cachedBeta, cachedScore)) ⇒ {
+                        if (alpha >= cachedAlpha && beta <= cachedBeta) {
+                            cacheManager.incSuccessfulLookups()
+
+                            cachedScore
                         }
                         else {
-                            // We update the cache, as tests have shown that this is more effective than
-                            // leaving the old value in the cache.
-                            // (A more detailed analysis would be helpful; e.g., whether we should use 
-                            // multi maps...)
-                            cache.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+                            cacheManager.incUnsuccessfulLookups()
+                            // The lookup was not directly successful, hence, we have to calculate the score.
+                            // After that, however, we may still be able to use some of the cached bounds to
+                            // calculate new relaxed bounds.
+
+                            val score = callNegamax(cacheManager)
+                            if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won) {
+                                cacheManager.update(
+                                    (updatedOccupiedInfo, updatedPlayerInfo),
+                                    (ConnectFourGame.Lost, ConnectFourGame.Won, score))
+                            }
+                            else if (score == cachedScore && (alpha < cachedBeta || cachedAlpha < beta)) {
+                                // the bounds are overlapping and the score was identical, hence, we can
+                                // use the outer most bounds; i.e., we can relax the bounds
+                                cacheManager.update(
+                                    (updatedOccupiedInfo, updatedPlayerInfo),
+                                    (Math.min(alpha, cachedAlpha), Math.max(beta, cachedBeta), score))
+                            }
+                            else {
+                                // We update the cache, as tests have shown that this is more effective than
+                                // leaving the old value in the cache.
+                                // (A more detailed analysis would be helpful; e.g., whether we should use 
+                                // multi maps...)
+                                cacheManager.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+                            }
+                            score
                         }
-                        score
                     }
-                }
-                case _ ⇒ {
-                    putIntoCache()
-                }
+                    case _ ⇒ {
+                        putIntoCache()
+                    }
 
+                }
             }
+            else
+                callNegamax(cacheManager)
         }
-        else
-            callNegamax()
+        else {
+            callNegamax(cacheManager.nextMove(nextMove))
+        }
     }
-
-    protected[connect4] val cache = scala.collection.mutable.Map[(OccupiedInfo, PlayerInfo), (Int, Int, Int)]()
-    protected[connect4] var successfulCacheLookups = 0
-    protected[connect4] var unsuccessfulCacheLookup = 0
-    
-    
 
     /**
       * Evaluates the given move w.r.t. the current game state.
@@ -488,8 +634,15 @@ class ConnectFourGame(
       * This method serves as a hook that enables subclasses to intercept the initial call to `negamax`
       * done by the `proposeMove` method.
       */
-    protected[connect4] def evaluateMove(nextMove: Mask, depth: Int, alpha: Int, beta: Int): Int = {
+    protected[connect4] def evaluateMove(
+        cacheManager: CacheManager,
+        nextMove: Mask,
+        depth: Int,
+        alpha: Int,
+        beta: Int): Int = {
+
         -negamax(
+            cacheManager.nextMove(nextMove),
             occupiedSquares + 1,
             occupiedInfo.update(nextMove),
             playerInfo.update(nextMove),
@@ -506,16 +659,14 @@ class ConnectFourGame(
       */
     def proposeMove(maxDepth: Int): Mask = {
 
-        cache.clear()
-        successfulCacheLookups = 0
-        unsuccessfulCacheLookup = 0
+        val cacheManager = new RootCacheManager
 
         val nextMoves = this.nextMovesWithKillerMoveIdentification(this.occupiedInfo, this.playerInfo)
         var bestMove = nextMoves.next()
-        var alpha = evaluateMove(bestMove, maxDepth - 1, -Int.MaxValue, Int.MaxValue)
+        var alpha = evaluateMove(cacheManager, bestMove, maxDepth - 1, -Int.MaxValue, Int.MaxValue)
         while (nextMoves.hasNext) { // for each legal move...
             val nextMove: Mask = nextMoves.next()
-            val value = evaluateMove(nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
+            val value = evaluateMove(cacheManager, nextMove, maxDepth - 1, -Int.MaxValue, -alpha)
             // Beware: the negamax is implemented using fail-soft alpha-beta-pruning; hence, if we would
             // choose a move with a value that is equal to the value of a previously evaluated move, it
             // could lead to a move that is actually advantageous for the opponent because a the part of
@@ -528,7 +679,10 @@ class ConnectFourGame(
             }
         }
 
-        println("cache size: "+cache.size+" successful lookups: "+successfulCacheLookups+" bounds failures: "+unsuccessfulCacheLookup);
+        println(
+            "Cache size: "+cacheManager.cache.size+
+                " successful lookups: "+cacheManager.successfulLookups+
+                " bounds failures: "+cacheManager.unsuccessfulLookups);
 
         if (alpha == -Int.MaxValue && maxDepth > 2) {
             // When the AI determines that it will always loose in the long run (when the opponent plays 
@@ -641,12 +795,13 @@ object ConnectFourGame {
             }
 
             override protected[connect4] def evaluateMove(
+                cacheManager: CacheManager,
                 nextMove: Mask,
                 depth: Int,
                 alpha: Int,
                 beta: Int): Int = {
 
-                val score = super.evaluateMove(nextMove, depth, alpha, beta)
+                val score = super.evaluateMove(cacheManager, nextMove, depth, alpha, beta)
 
                 println("Move: "+board.column(nextMove)+" => "+
                     {
@@ -693,6 +848,7 @@ object ConnectFourGame {
             private var currentNodeLabel: String = _
 
             override protected[connect4] def evaluateMove(
+                cacheManager: CacheManager,
                 nextMove: Mask,
                 occupiedSquares: Int,
                 occupiedInfo: OccupiedInfo,
@@ -704,7 +860,7 @@ object ConnectFourGame {
                 val oldLabel = currentNodeLabel
                 currentNodeLabel += String.valueOf(board.column(nextMove))+"↓"
                 println("\""+oldLabel+"\" -> "+"\""+currentNodeLabel+"\";")
-                val score = super.evaluateMove(nextMove, occupiedSquares, occupiedInfo, playerInfo, depth, alpha, beta)
+                val score = super.evaluateMove(cacheManager, nextMove, occupiedSquares, occupiedInfo, playerInfo, depth, alpha, beta)
                 println(
                     "\""+
                         currentNodeLabel+
@@ -722,13 +878,14 @@ object ConnectFourGame {
             }
 
             override protected[connect4] def evaluateMove(
+                cacheManager: CacheManager,
                 nextMove: Mask,
                 depth: Int,
                 alpha: Int,
                 beta: Int): Int = {
 
                 currentNodeLabel = String.valueOf(board.column(nextMove))+"↓"
-                val score = super.evaluateMove(nextMove, depth, alpha, beta)
+                val score = super.evaluateMove(cacheManager, nextMove, depth, alpha, beta)
                 println("\"root\" -> "+"\""+currentNodeLabel+"\";")
                 println(
                     "\""+
