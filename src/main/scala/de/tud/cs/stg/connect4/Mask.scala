@@ -87,11 +87,7 @@ class Mask private (val value: Long) extends AnyVal {
       */
     def isSubset(other: Mask): Boolean = (this.value & other.value) == this.value
 
-    /**
-     * True, if this mask masks/selects no square.
-     */
     def isEmpty(): Boolean = value == 0l
-
 }
 
 /**
