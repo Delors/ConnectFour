@@ -23,14 +23,16 @@ Implemented Features
 Notes
 =====
 The following types of connect four games are decided:
-Rows x Cols 
-4 x 4 => drawn (if both players play perfectly, no player will be able to win)
-4 x 5 => drawn
-4 x 6 => the second player will win, if the second player plays perfectly
-4 x 7 => drawn
-5 x 5 => drawn
-6 x 4 => drawn 
-6 x 6 => the second player will win, if the second player plays perfectly
+
+|Rows | Cols | Result, when both players play perfectly |
+|----|------|----|
+|4 | 4 | drawn
+|4 | 5 | drawn
+|4 | 6 | the second player will win
+|4 | 7 | drawn
+|5 | 5 | drawn
+|6 | 4 | drawn 
+|6 | 6 | the second player will win
 
  
  
