@@ -457,13 +457,18 @@ class ConnectFourGame(
         }
     }
 
+    /**
+      * Implementation of the `CacheManager` trait that delegates all calls to a `RootCacheManager`.
+      */
     protected[connect4] abstract class DelegatingCacheManager extends CacheManager {
 
         def rootCacheManager: RootCacheManager
 
-        final def update(configuration: Configuration, score: CurrentScore): Unit = rootCacheManager.update(configuration, score)
+        final def update(configuration: Configuration, score: CurrentScore): Unit =
+            rootCacheManager.update(configuration, score)
 
-        final def get(configuration: Configuration): Option[CurrentScore] = rootCacheManager.get(configuration)
+        final def get(configuration: Configuration): Option[CurrentScore] =
+            rootCacheManager.get(configuration)
 
         final def successfulLookups(): Int = rootCacheManager.successfulLookups
 
@@ -475,6 +480,10 @@ class ConnectFourGame(
 
     }
 
+    /**
+      * Cache manager that is used while the first levels of the search tree are explored and while
+      * it is meaningless to cache the configuration.
+      */
     protected[connect4] class PreCachePhaseCacheManager(
             final val rootCacheManager: RootCacheManager,
             final val menInPrimaryColumn: Int,
@@ -482,16 +491,15 @@ class ConnectFourGame(
             final val menInSecondaryColumn: Int,
             final val initialMaskForSecondaryColumn: Mask) extends DelegatingCacheManager {
 
+        // Currently, the support for the identification of board configuration that are meaningless to
+        // cache is limited. E.g., the situation where player A puts its men in one column and player B
+        // its men in another column is not yet identified.
+
         def this(rootCacheManager: RootCacheManager, initialMove: Mask) {
-            this(
-                rootCacheManager,
-                1, initialMove,
-                0, Mask.Empty)
+            this(rootCacheManager, 1, initialMove, 0, Mask.Empty)
         }
 
-        final def doCaching = {
-            false
-        }
+        final def doCaching = { false }
 
         def nextMove(move: Mask): CacheManager = {
             if (board.isRowsAbove(initialMaskForPrimaryColumn, move, menInPrimaryColumn)) {
@@ -522,7 +530,9 @@ class ConnectFourGame(
                         menInSecondaryColumn + 1, initialMaskForSecondaryColumn)
                 }
             }
-            else { // a stone is put in the third column 
+            else {
+                // a stone is put in the third column; in such a situation it is becoming meaningful
+                // to cache the situation.
                 rootCacheManager.inCachePhaseCacheManager
             }
         }

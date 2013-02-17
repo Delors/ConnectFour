@@ -171,22 +171,22 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         it("if the black player has three men in a line that can be completed to a line of four connected "+
             "men then the ai should put a man in the square that prevents the black player from "+
             "(immediately) winning") {
-            bBlackCanWin.evaluateMove(Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bBlackCanWin.evaluateMove(Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bBlackCanWin.evaluateMove(Mask.forSquare(13), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(new bBlackCanWin.RootCacheManager, Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(new bBlackCanWin.RootCacheManager, Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bBlackCanWin.evaluateMove(new bBlackCanWin.RootCacheManager, Mask.forSquare(13), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
 
             Board6x7.squareId(bBlackCanWin.proposeMove(2)) should be(24)
         }
 
         it("if the white player has three men in a line which can be completed to a line of four connected "+
             "men the ai should make the move that prevents the white player from (immediately) winning") {
-            bWhiteCanWin.evaluateMove(Mask.forSquare(0), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(8), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(9), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(10), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
-            bWhiteCanWin.evaluateMove(Mask.forSquare(6), 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(0), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(8), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(9), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(10), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(11), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(12), 3, -Int.MaxValue, Int.MaxValue) should be(-2147483647)
+            bWhiteCanWin.evaluateMove(new bWhiteCanWin.RootCacheManager, Mask.forSquare(6), 3, -Int.MaxValue, Int.MaxValue) should be > -2147483647
 
             bWhiteCanWin.proposeMove(3) should be(Mask.forSquare(6))
             bWhiteCanWin.proposeMove(2) should be(Mask.forSquare(6))
