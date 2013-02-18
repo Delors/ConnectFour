@@ -497,7 +497,7 @@ class ConnectFourGame(
             final val menInSecondaryColumn: Int,
             final val initialMaskForSecondaryColumn: Mask) extends DelegatingCacheManager {
 
-        // Currently, the support for the identification of board configuration that are meaningless to
+        // Currently, the support for the identification of board configurations that are meaningless to
         // cache is limited. E.g., the situation where player A puts its men in one column and player B
         // its men in another column is not yet identified.
 
