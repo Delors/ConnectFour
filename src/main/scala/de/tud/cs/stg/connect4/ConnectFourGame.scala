@@ -459,7 +459,7 @@ class ConnectFourGame(
                 true
             }
 
-            def nextMove(move: Mask): CacheManager = sys.error("updating an InCachePhaseCacheManager is not meaningful")
+            def nextMove(move: Mask): CacheManager = this
         }
     }
 
@@ -563,60 +563,55 @@ class ConnectFourGame(
 
         val updatedOccupiedInfo = occupiedInfo.update(nextMove)
         val updatedPlayerInfo = playerInfo.update(nextMove)
-
+        val updatedCacheManager = cacheManager.nextMove(nextMove)
+        
         def callNegamax(cacheManager: CacheManager): Int =
             -negamax(
                 cacheManager,
                 occupiedSquares + 1, updatedOccupiedInfo, updatedPlayerInfo,
                 nextMove, depth, alpha, beta)
-
-        if (cacheManager.doCaching) {
+            
+        if (updatedCacheManager.doCaching) {
 
             def putIntoCache(): Int = {
-                val score = callNegamax(cacheManager)
+                val score = callNegamax(updatedCacheManager)
                 // if the score is equal to Won or Lost then the score would not change if the calculation would
                 // be repeated with relaxed alpha and beta bounds, hence, we can cache the score using relaxed 
                 // bounds
                 if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won)
-                    cacheManager.update(
+                    updatedCacheManager.update(
                         (updatedOccupiedInfo, updatedPlayerInfo),
                         (ConnectFourGame.Lost, ConnectFourGame.Won, score))
                 else
-                    cacheManager.update(
+                    updatedCacheManager.update(
                         (updatedOccupiedInfo, updatedPlayerInfo),
                         (alpha, beta, score))
                 score
             }
 
             if (depth > 1) {
-
-                // caching makes sense only for nodes that are on at least the third level in the search tree;
-                // i.e., only after a move of the current player, the opponent and another move of the current player
-                // the board may be identical to a previously seen board
-
-                cacheManager.get(updatedOccupiedInfo, updatedPlayerInfo) match {
+                updatedCacheManager.get(updatedOccupiedInfo, updatedPlayerInfo) match {
                     case Some((cachedAlpha, cachedBeta, cachedScore)) ⇒ {
                         if (alpha >= cachedAlpha && beta <= cachedBeta) {
-                            cacheManager.incSuccessfulLookups()
-
+                            updatedCacheManager.incSuccessfulLookups()
                             cachedScore
                         }
                         else {
-                            cacheManager.incUnsuccessfulLookups()
+                            updatedCacheManager.incUnsuccessfulLookups()
                             // The lookup was not directly successful, hence, we have to calculate the score.
                             // After that, however, we may still be able to use some of the cached bounds to
                             // calculate new relaxed bounds.
 
-                            val score = callNegamax(cacheManager)
+                            val score = callNegamax(updatedCacheManager)
                             if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won) {
-                                cacheManager.update(
+                                updatedCacheManager.update(
                                     (updatedOccupiedInfo, updatedPlayerInfo),
                                     (ConnectFourGame.Lost, ConnectFourGame.Won, score))
                             }
                             else if (score == cachedScore && (alpha < cachedBeta || cachedAlpha < beta)) {
                                 // the bounds are overlapping and the score was identical, hence, we can
                                 // use the outer most bounds; i.e., we can relax the bounds
-                                cacheManager.update(
+                                updatedCacheManager.update(
                                     (updatedOccupiedInfo, updatedPlayerInfo),
                                     (Math.min(alpha, cachedAlpha), Math.max(beta, cachedBeta), score))
                             }
@@ -625,7 +620,7 @@ class ConnectFourGame(
                                 // leaving the old value in the cache.
                                 // (A more detailed analysis would be helpful; e.g., whether we should use 
                                 // multi maps...)
-                                cacheManager.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
+                                updatedCacheManager.update((updatedOccupiedInfo, updatedPlayerInfo), (alpha, beta, score))
                             }
                             score
                         }
@@ -637,10 +632,10 @@ class ConnectFourGame(
                 }
             }
             else
-                callNegamax(cacheManager)
+                callNegamax(updatedCacheManager)
         }
         else {
-            callNegamax(cacheManager.nextMove(nextMove))
+            callNegamax(updatedCacheManager)
         }
     }
 
