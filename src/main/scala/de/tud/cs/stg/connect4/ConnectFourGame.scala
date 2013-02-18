@@ -424,8 +424,14 @@ class ConnectFourGame(
 
         private var unsuccessfulCacheLookups: Int = 0
 
-        def update(configuration: Configuration, value: CurrentScore): Unit =
+        private var cacheUpdates: Int = 0
+
+        def update(configuration: Configuration, value: CurrentScore): Unit = {
+            cacheUpdates += 1
             cache.update(configuration, value)
+        }
+
+        def updates(): Int = this.cacheUpdates
 
         def get(configuration: Configuration): Option[CurrentScore] =
             cache.get(configuration)
@@ -692,6 +698,7 @@ class ConnectFourGame(
 
         println(
             "Cache size: "+cacheManager.cache.size+
+                " cache updates: "+cacheManager.updates+
                 " successful lookups: "+cacheManager.successfulLookups+
                 " bounds failures: "+cacheManager.unsuccessfulLookups);
 
