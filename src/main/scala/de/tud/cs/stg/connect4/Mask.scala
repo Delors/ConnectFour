@@ -77,6 +77,11 @@ class Mask private (val value: Long) extends AnyVal {
     def isLegal = this.value != Mask.Illegal.value
 
     /**
+     * True if this mask selects no square.
+     */
+    def isEmpty = this.value == 0l
+    
+    /**
       * Tests is all squares identified by the other mask are set for this mask.
       */
     def areSet(other: Mask): Boolean = (this.value & other.value) == other.value
