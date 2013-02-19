@@ -316,9 +316,15 @@ class Board( final val rows: Int, final val cols: Int) {
       * @throws IllegalArgumentException if the mask selects squares in multiple columns.
       */
     final def column(mask: Mask): Int = {
-        for (col ← 0 to maxColIndex) {
-            if (mask.isSubset(columnMasks(col))) return col
-        }
+        var col = maxColIndex
+        var colMask = columnMasks(col)
+        do {
+            if (mask.isSubset(colMask))
+                return col
+            col -= 1
+            colMask = Mask(colMask.value >> 1)
+        } while (col >= 0)
+
         throw new IllegalArgumentException(
             "the mask:\n"+maskToString(mask)+"\nidentifies squares in several columns"
         )
