@@ -11,9 +11,9 @@ To play a game call ''sbt run''.
 Implemented Features
 =================
  - negamax algorithm with alpha-beta-pruning
- - simple scoring function which scores a board based on the number of lines of three connected men
  - effective move ordering algorithm
- - caching of intermediate board configurations while exploring the search 
+ - caching of intermediate board configurations to speed up exploring the search tree
+ - simple scoring function which scores a board based on the number of lines of three connected men
  - flexible board size (between 4x4 and 7x8/8x7)
  - output of the search tree as a Dot graph
  - the ai can play as the white or black player
