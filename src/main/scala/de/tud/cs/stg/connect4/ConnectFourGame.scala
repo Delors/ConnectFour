@@ -200,7 +200,8 @@ class ConnectFourGame(
             if (determineState(move, updatedOccupiedInfo, playerInfo.update(move)).hasWinner) {
                 return Iterator.single(move)
             }
-            else if (preventImmediateLooseMove.isIllegal && // <= Optimization - the identification of a second move that prevents an immediate loss is not helpful
+            else if ( // The identification of a second move that prevents an immediate loss is not helpful...
+            preventImmediateLooseMove.isIllegal &&
                 determineState(
                     move,
                     updatedOccupiedInfo,
@@ -385,8 +386,6 @@ class ConnectFourGame(
         valueOfBestMove
     }
 
-    import scala.collection.mutable.Map;
-
     protected[connect4] trait CacheManager {
 
         type Configuration = (OccupiedInfo, PlayerInfo)
@@ -397,20 +396,12 @@ class ConnectFourGame(
 
         def get(configuration: Configuration): Option[CurrentScore]
 
-        def successfulLookups(): Int
-
-        def incSuccessfulLookups(): Unit
-
-        def unsuccessfulLookups(): Int
-
-        def incUnsuccessfulLookups(): Unit
-
         def update(move: Mask): CacheManager
 
         /**
-          * Returns true if caching (caching the configuration/trying to look up a configuration in the cache)
-          * potentially makes sense. I.e., it does not make sense to cache the node at the first level
-          * of the search tree, as there will never be a successful lookup.
+          * Returns true if caching (caching the configuration/trying to look up the score of a configuration
+          * in the cache) potentially makes sense. I.e., it does not make sense to cache the node at the first
+          * level of the search tree, as there will never be a successful lookup.
           */
         def doCaching: Boolean
 
@@ -418,53 +409,31 @@ class ConnectFourGame(
 
     protected[connect4] class RootCacheManager extends CacheManager {
 
-        final val cache: Map[Configuration, CurrentScore] = Map()
+        import scala.collection.mutable.Map;
 
-        private var successfulCacheLookups: Int = 0
+        private final val cache: Map[Configuration, CurrentScore] = Map()
 
-        private var unsuccessfulCacheLookups: Int = 0
+        final def update(configuration: Configuration, value: CurrentScore) = cache.update(configuration, value)
 
-        private var cacheUpdates: Int = 0
+        final def get(configuration: Configuration): Option[CurrentScore] = cache.get(configuration)
 
-        def update(configuration: Configuration, value: CurrentScore): Unit = {
-            cacheUpdates += 1
-            cache.update(configuration, value)
-        }
+        final def update(move: Mask): CacheManager = new PreCachePhaseCacheManager(this).update(move)
 
-        def updates(): Int = this.cacheUpdates
-
-        def get(configuration: Configuration): Option[CurrentScore] =
-            cache.get(configuration)
-
-        def successfulLookups(): Int = this.successfulCacheLookups
-
-        def incSuccessfulLookups(): Unit = this.successfulCacheLookups += 1
-
-        def unsuccessfulLookups(): Int = this.unsuccessfulCacheLookups
-
-        def incUnsuccessfulLookups(): Unit = this.unsuccessfulCacheLookups += 1
-
-        def update(move: Mask): CacheManager = {
-            new PreCachePhaseCacheManager(this).update(move)
-        }
-
-        // not enough men are put on the board...
-        def doCaching = false
+        final def doCaching = false
 
         final val inCachePhaseCacheManager = new DelegatingCacheManager {
 
             def rootCacheManager: RootCacheManager = RootCacheManager.this
 
-            final def doCaching = {
-                true
-            }
+            final def doCaching = true
 
             final def update(move: Mask): CacheManager = this
         }
     }
 
     /**
-      * Implementation of the `CacheManager` trait that delegates all calls to a `RootCacheManager`.
+      * Implementation of the `CacheManager` trait that delegates all caching related calls to a
+      * `RootCacheManager`.
       */
     protected[connect4] abstract class DelegatingCacheManager extends CacheManager {
 
@@ -476,89 +445,10 @@ class ConnectFourGame(
         final def get(configuration: Configuration): Option[CurrentScore] =
             rootCacheManager.get(configuration)
 
-        final def successfulLookups(): Int = rootCacheManager.successfulLookups
-
-        final def incSuccessfulLookups(): Unit = rootCacheManager.incSuccessfulLookups
-
-        final def unsuccessfulLookups(): Int = rootCacheManager.unsuccessfulLookups
-
-        final def incUnsuccessfulLookups(): Unit = rootCacheManager.incUnsuccessfulLookups
-
     }
 
-    //    /**
-    //      * Cache manager that is used during the initial exploration of the search tree. The cache manager
-    //      * tries to filter as many useless configuration as possible without spending "too much effort"; caching
-    //      * useless configurations is no very expensive.
-    //      */
-    //    
-    //    protected[connect4] class PreCachePhaseCacheManager(
-    //            final val rootCacheManager: RootCacheManager,
-    //            final val currentPlayer: Player,
-    //            final val columnsWithWhiteMenAtTop: Int,
-    //            final val columnsWithBlackMenAtTop: Int) extends DelegatingCacheManager {
-    //
-    //        def this(rootCacheManager: RootCacheManager) {
-    //            this(rootCacheManager, Player.White, 0, 0)
-    //        }
-    //
-    //        final def doCaching = { false }
-    //
-    //        def update(move: Mask): CacheManager = {
-    //
-    //            val column = board.column(move)
-    //            val columnMask = 1 << column
-    //            if (currentPlayer.isWhite) {
-    //                if (columnsWithWhiteMenAtTop != columnMask)
-    //                    return rootCacheManager.inCachePhaseCacheManager
-    //                else
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        currentPlayer.opponent,
-    //                        columnsWithWhiteMenAtTop | columnMask,
-    //                        columnsWithBlackMenAtTop & ~columnMask
-    //                    )
-    //
-    //            }
-    //            else {
-    //                if (columnsWithBlackMenAtTop != columnMask)
-    //                    return rootCacheManager.inCachePhaseCacheManager
-    //                else
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        currentPlayer.opponent,
-    //                        columnsWithWhiteMenAtTop & ~columnMask,
-    //                        columnsWithBlackMenAtTop | columnMask
-    //                    )
-    //            }
-    //        }
-    //    }
-
-    //    /**
-    //      * Cache manager that is used while the first levels of the search tree are explored and while
-    //      * it is meaningless to cache the configuration.
-    //      */
-    //    protected[connect4] class PreCachePhaseCacheManager(
-    //            final val rootCacheManager: RootCacheManager,
-    //            final val lastMove: Mask) extends DelegatingCacheManager {
-    //
-    //        def this(rootCacheManager: RootCacheManager) {
-    //            this(rootCacheManager, Mask.Empty)
-    //        }
-    //
-    //        final def doCaching = { false }
-    //
-    //        def update(move: Mask): CacheManager = {
-    //            if (!lastMove.isEmpty && board.isRowsAbove(lastMove, move, 1))
-    //                return rootCacheManager.inCachePhaseCacheManager
-    //            else
-    //                new PreCachePhaseCacheManager(rootCacheManager, move)
-    //        }
-    //    }
-
     /**
-      * Cache manager that is used while the first levels of the search tree are explored and while
-      * it is meaningless to cache the configuration.
+      * Cache manager that is used as long as it makes not sense to cache a specific configuration.
       */
     protected[connect4] class PreCachePhaseCacheManager(
             final val rootCacheManager: RootCacheManager,
@@ -567,8 +457,12 @@ class ConnectFourGame(
             final val menPerLogicalRowWhite: IndexedSeq[Int],
             final val menPerLogicalRowBlack: IndexedSeq[Int]) extends DelegatingCacheManager {
 
+        private def this(rootCacheManager: RootCacheManager, emptySeq: IndexedSeq[Int]) {
+            this(rootCacheManager, Player.White, emptySeq, emptySeq, emptySeq)
+        }
+
         def this(rootCacheManager: RootCacheManager) {
-            this(rootCacheManager, Player.White, IndexedSeq.fill(board.cols) { 0 }, IndexedSeq.fill(board.cols) { 0 }, IndexedSeq.fill(board.cols) { 0 })
+            this(rootCacheManager, IndexedSeq.fill(board.cols) { 0 })
         }
 
         final def doCaching = { false }
@@ -580,7 +474,6 @@ class ConnectFourGame(
 
             if (currentPlayer.isWhite) {
                 val newMenPerLogicalRowWhite = menPerLogicalRowWhite(newMenPerColumn) + 1
-                val updatedMenPerLogicalRowWhite = menPerLogicalRowWhite.updated(newMenPerColumn, newMenPerLogicalRowWhite)
                 if (newMenPerLogicalRowWhite >= 2 && menPerLogicalRowBlack.exists(_ >= 2)) {
                     return rootCacheManager.inCachePhaseCacheManager
                 }
@@ -589,13 +482,12 @@ class ConnectFourGame(
                         rootCacheManager,
                         currentPlayer.opponent,
                         updatedMenPerColumn,
-                        updatedMenPerLogicalRowWhite,
+                        menPerLogicalRowWhite.updated(newMenPerColumn, newMenPerLogicalRowWhite),
                         menPerLogicalRowBlack)
                 }
             }
             else {
                 val newMenPerLogicalRowBlack = menPerLogicalRowBlack(newMenPerColumn) + 1
-                val updatedMenPerLogicalRowBlack = menPerLogicalRowBlack.updated(newMenPerColumn, newMenPerLogicalRowBlack)
                 if (newMenPerLogicalRowBlack >= 2 && menPerLogicalRowWhite.exists(_ >= 2)) {
                     return rootCacheManager.inCachePhaseCacheManager
                 }
@@ -605,150 +497,11 @@ class ConnectFourGame(
                         currentPlayer.opponent,
                         updatedMenPerColumn,
                         menPerLogicalRowWhite,
-                        updatedMenPerLogicalRowBlack)
+                        menPerLogicalRowBlack.updated(newMenPerColumn, newMenPerLogicalRowBlack))
                 }
-
             }
         }
     }
-
-    //        /**
-    //          * Cache manager that is used while the first levels of the search tree are explored and while
-    //          * it is meaningless to cache the configuration.
-    //          */
-    //        protected[connect4] class PreCachePhaseCacheManager(
-    //                final val rootCacheManager: RootCacheManager,
-    //                final val currentPlayer: Player,
-    //                final val menPerColumn: Int,
-    //                final val columnsOfWhitePlayer: Int,
-    //                final val columnsOfBlackPlayer: Int) extends DelegatingCacheManager {
-    //    
-    //            def this(rootCacheManager: RootCacheManager) {
-    //                this(rootCacheManager, Player.White, 0, 0, 0)
-    //            }
-    //    
-    //            final def doCaching = { false }
-    //    
-    //            def update(move: Mask): CacheManager = {
-    //                def menInColumn(column: Int): Int = (menPerColumn >>> column * 4) & 15
-    //    
-    //                val column = board.column(move)
-    //                val columnMask = 1 << column
-    //    
-    //                val columnShift = (column * 4)
-    //    
-    //                val menInCurrentColumn = menInColumn(column) + 1
-    //                val updatedMenPerColumn = (menPerColumn & ~(15 << columnShift)) | (menInCurrentColumn << columnShift)
-    //    
-    //                if (currentPlayer.isWhite) {
-    //                    if ((columnsOfWhitePlayer & ~columnMask) != 0) {
-    //                        // we will have at least two men that are at the top of two different columns
-    //                        var c = board.maxColIndex
-    //                        do {
-    //                            if (c != column &&
-    //                                (columnsOfWhitePlayer & (1 << c)) != 0 &&
-    //                                (menInCurrentColumn - menInColumn(c)) % 2 == 0) {
-    //                                return rootCacheManager.inCachePhaseCacheManager
-    //                            }
-    //                            c -= 1
-    //                        } while (c >= 0)
-    //                    }
-    //    
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        currentPlayer.opponent,
-    //                        updatedMenPerColumn,
-    //                        columnsOfWhitePlayer | columnMask,
-    //                        columnsOfBlackPlayer & ~columnMask)
-    //    
-    //                }
-    //                else {
-    //                    if ((columnsOfBlackPlayer & ~columnMask) != 0) {
-    //                        // we will have at least two men that are at the top of two different columns
-    //                        var c = board.maxColIndex
-    //                        do {
-    //                            if (c != column &&
-    //                                (columnsOfBlackPlayer & (1 << c)) != 0 &&
-    //                                (menInCurrentColumn - menInColumn(c)) % 2 == 0) {
-    //                                return rootCacheManager.inCachePhaseCacheManager
-    //                            }
-    //                            c -= 1
-    //                        } while (c >= 0)
-    //                    }
-    //    
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        currentPlayer.opponent,
-    //                        updatedMenPerColumn,
-    //                        columnsOfWhitePlayer & ~columnMask,
-    //                        columnsOfBlackPlayer | columnMask)
-    //                }
-    //            }
-    //        }
-
-    //    /**
-    //      * Cache manager that is used while the first levels of the search tree are explored and while
-    //      * it is meaningless to cache the configuration.
-    //      */
-    //    protected[connect4] class PreCachePhaseCacheManager(
-    //            final val rootCacheManager: RootCacheManager,
-    //            final val menInPrimaryColumn: Int,
-    //            final val initialMaskForPrimaryColumn: Mask,
-    //            final val menInSecondaryColumn: Int,
-    //            final val initialMaskForSecondaryColumn: Mask) extends DelegatingCacheManager {
-    //
-    //        // Currently, the support for the identification of board configurations that are meaningless to
-    //        // cache is limited. E.g., the situation where player A puts its men in one column and player B
-    //        // its men in another column is not yet identified.
-    //
-    //        def this(rootCacheManager: RootCacheManager) {
-    //            this(rootCacheManager, 0, Mask.Empty, 0, Mask.Empty)
-    //        }
-    //
-    //        final def doCaching = { false }
-    //
-    //        def update(move: Mask): CacheManager = {
-    //            if (menInPrimaryColumn == 0) {
-    //                new PreCachePhaseCacheManager(
-    //                    rootCacheManager,
-    //                    1, move,
-    //                    0, Mask.Empty)
-    //            }
-    //            else if (board.isRowsAbove(initialMaskForPrimaryColumn, move, menInPrimaryColumn)) {
-    //                if (menInPrimaryColumn >= 1 && menInSecondaryColumn >= 2) {
-    //                    rootCacheManager.inCachePhaseCacheManager
-    //                }
-    //                else {
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        menInPrimaryColumn + 1, initialMaskForPrimaryColumn,
-    //                        menInSecondaryColumn, initialMaskForSecondaryColumn)
-    //                }
-    //            }
-    //            else if (menInSecondaryColumn == 0) {
-    //                new PreCachePhaseCacheManager(
-    //                    rootCacheManager,
-    //                    menInPrimaryColumn, initialMaskForPrimaryColumn,
-    //                    1, move)
-    //            }
-    //            else if (board.isRowsAbove(initialMaskForSecondaryColumn, move, menInSecondaryColumn)) {
-    //                if (menInPrimaryColumn >= 2 && menInSecondaryColumn >= 1) {
-    //                    rootCacheManager.inCachePhaseCacheManager
-    //                }
-    //                else {
-    //                    new PreCachePhaseCacheManager(
-    //                        rootCacheManager,
-    //                        menInPrimaryColumn, initialMaskForPrimaryColumn,
-    //                        menInSecondaryColumn + 1, initialMaskForSecondaryColumn)
-    //                }
-    //            }
-    //            else {
-    //                // a stone is put in the third column; in such a situation it is becoming meaningful
-    //                // to cache the situation.
-    //                rootCacheManager.inCachePhaseCacheManager
-    //            }
-    //        }
-    //    }
 
     /**
       * Evaluates the given move w.r.t. the given game state. This method is used by the `negamax` method when
@@ -781,9 +534,9 @@ class ConnectFourGame(
 
             def putIntoCache(): Int = {
                 val score = callNegamax(updatedCacheManager)
-                // if the score is equal to Won or Lost then the score would not change if the calculation would
+                // If the score is equal to Won or Lost then the score would not change if the calculation would
                 // be repeated with relaxed alpha and beta bounds, hence, we can cache the score using relaxed 
-                // bounds
+                // bounds.
                 if (score == ConnectFourGame.Lost || score == ConnectFourGame.Won)
                     updatedCacheManager.update(
                         (updatedOccupiedInfo, updatedPlayerInfo),
@@ -795,15 +548,13 @@ class ConnectFourGame(
                 score
             }
 
-            if (depth > 1) {
+            if (depth > 1 /*caching "end configurations" is not effective*/ ) {
                 updatedCacheManager.get(updatedOccupiedInfo, updatedPlayerInfo) match {
                     case Some((cachedAlpha, cachedBeta, cachedScore)) ⇒ {
                         if (alpha >= cachedAlpha && beta <= cachedBeta) {
-                            updatedCacheManager.incSuccessfulLookups()
                             cachedScore
                         }
                         else {
-                            updatedCacheManager.incUnsuccessfulLookups()
                             // The lookup was not directly successful, hence, we have to calculate the score.
                             // After that, however, we may still be able to use some of the cached bounds to
                             // calculate new relaxed bounds.
@@ -837,7 +588,6 @@ class ConnectFourGame(
                     case _ ⇒ {
                         putIntoCache()
                     }
-
                 }
             }
             else
@@ -899,12 +649,6 @@ class ConnectFourGame(
                 alpha = value
             }
         }
-
-        println(
-            "Cache size: "+cacheManager.cache.size+
-                " cache updates: "+cacheManager.updates+
-                " successful lookups: "+cacheManager.successfulLookups+
-                " bounds failures: "+cacheManager.unsuccessfulLookups);
 
         if (alpha == -Int.MaxValue && maxDepth > 2) {
             // When the AI determines that it will always loose in the long run (when the opponent plays 

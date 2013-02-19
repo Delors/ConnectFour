@@ -81,7 +81,7 @@ class OccupiedInfo private (val board: Long) extends AnyVal {
 
     /**
       * Returns a mask that identifies the squares where a man was placed when compared with this
-      * maks (the base mask).
+      * mask (the base mask).
       *
       * ==Prerequisite==
       * The result is only defined if the given mask is a successor mask of this mask.
