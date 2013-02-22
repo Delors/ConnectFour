@@ -33,11 +33,15 @@
 package de.tud.cs.stg.connect4
 
 /**
-  * Provides basic information about a specific ''Connect Four'' board.
+  * Provides basic information about ''Connect Four'' boards of a specific size.
   *
   * The implementation supports boards that have at least 4 rows and 4
   * columns and that have at most 8 rows and 8 columns, but which do not have more than 56 squares; i.e.,
   * a board has at most eight rows and seven columns or seven rows and eight columns.
+  *
+  * ==Remark==
+  * This class does not represent a specific board at runtime, rather generic, static information about boards
+  * of a specific size.
   *
   * @param rows The board's number of rows (4 <= ROWS <= 8).
   * @param cols The board's number of columns (4 <= COLS <= 8).
@@ -85,11 +89,11 @@ class Board( final val rows: Int, final val cols: Int) {
       *
       * This mask can, e.g., be used to efficiently check whether all squares are occupied.
       */
-    final val topRowMask: Mask = (Mask.Empty /: (upperLeftSquareIndex until squares))(_ combine Mask.forSquare(_))
+    final val topRowMask: Mask =
+        (Mask.Empty /: (upperLeftSquareIndex until squares))(_ combine Mask.forSquare(_))
 
     /**
       * Array of masks that mask all squares in a column.
-      *
       * I.e., the first element of the array
       * contains a mask that masks all squares in the first column (index 0).
       */

@@ -38,7 +38,7 @@ import scala.collection.mutable.Buffer
 
 /**
   * Represents the current game state: which fields are occupied by which player and which player has
-  * to make the next move. The game state object is immutable. I.e., every update creates a new instance.
+  * to make the next move. The game state object is immutable. I.e., every update/move creates a new instance.
   *
   * For a detailed discussion of "Connect Four" go to:
   * [[http://www.connectfour.net/Files/connect4.pdf Connect Four - Master Thesis]]
@@ -49,8 +49,7 @@ import scala.collection.mutable.Buffer
   *
   * This implementation is primarily used for teaching purposes (w.r.t. the minimax/negamax algorithm). To
   * this end, the default scoring function is very simple, but is still strong enough to make it a reasonable
-  * opponent for a human player. However, the evaluation function to assess the game state can be considered
-  * trivial at best unless the board is extremely small (4x4) - in such a case the ai plays perfectly.
+  * opponent for a human player. However, if the board is extremely small (4x4) the ai plays perfectly.
   *
   * In the following we use the following terminology:
   *  - The game is always played by exactly two ''PLAYER''s on a ''BOARD'' that typically has 6 ''ROWS'' x
@@ -99,16 +98,16 @@ import scala.collection.mutable.Buffer
   * Additionally, the information is stored which player has to make the next move (using the most
   * significant bit (the 64th) of the second long value). The other bits of the long values are not used.
   * To make the code easily comprehensible, two '''value classes''' are defined that wrap the long values and
-  * implement the required functionality ([[de.tud.cs.stg.connect4.OccupiedInfo]] and
+  * implement the required functionality (see [[de.tud.cs.stg.connect4.OccupiedInfo]] and
   * [[de.tud.cs.stg.connect4.PlayerInfo]]).
   *
   * Overall, this design enables a reasonable performance and facilitates the exploration of a couple million
   * game states per second (Java 7, Intel Core i7 3GHZ and 8Gb Ram for the JVM).
   *
-  * For example, to efficiently check whether the game is finished, all winning conditions are encoded using
-  * special bit masks (see [[de.tud.cs.stg.connect4.Board]]) and these masks are just matched (by means of
-  * the standard binary-and ("&") operator) against both long values to determine whether a certain player has
-  * won the game.
+  * For example, to efficiently check whether the game is finished; i.e., some player was able to connect four
+  * men, all winning conditions are encoded using special bit masks (see [[de.tud.cs.stg.connect4.Board]])
+  * and these masks are just matched (by means of the standard binary-and ("&") operator) against both long
+  * values to determine whether a certain player has won the game.
   *
   * @param board The board on which the game will be played.
   * @param score A function that scores a specific board. The value has to be positive if the white player has an
@@ -182,17 +181,22 @@ class ConnectFourGame(
     }
 
     /**
-      * If a move is identified that leads to an immediate win of the ''current player'' only that move is
-      * returned. All other moves are pruned. If no winning move is identified, but a forced move is found;
+      * If a move exists that leads to an immediate win of the ''current player'' that move is
+      * returned. All other moves are pruned. If no winning move exists, but a forced move is found;
       * i.e., a move that prevents the current player from immediately loosing the game, the iterator will
       * only return that move.
+      *
+      * ==Implementation Note==
+      * The complexity of identifying a killer move is roughly comparable to the effort that is necessary
+      * when exploring and scoring the last level of the search tree. Hence, calling this function is
+      * meaningful when analyzing the last level.
       */
     protected[connect4] def nextMovesWithKillerMoveIdentification(
         occupiedInfo: OccupiedInfo,
-        playerInfo: PlayerInfo): scala.collection.Iterator[Mask] = {
+        playerInfo: PlayerInfo): Iterator[Mask] = {
 
         val it = nextMoves(occupiedInfo)
-        var preventImmediateLooseMove: Mask = Mask.Illegal
+        var preventImmediateLossMove: Mask = Mask.Illegal
         var otherMoves: List[Mask] = List()
         do {
             val move = it.next
@@ -201,21 +205,21 @@ class ConnectFourGame(
                 return Iterator.single(move)
             }
             else if ( // The identification of a second move that prevents an immediate loss is not helpful...
-            preventImmediateLooseMove.isIllegal &&
+            preventImmediateLossMove.isIllegal &&
                 determineState(
                     move,
                     updatedOccupiedInfo,
                     playerInfo.update(move, playerInfo.turnOf.opponent)).hasWinner) {
                 // we can not immediately return this result as there may also be a winning move 
-                preventImmediateLooseMove = move
+                preventImmediateLossMove = move
             }
             else {
                 otherMoves = move :: otherMoves
             }
         } while (it.hasNext)
 
-        if (preventImmediateLooseMove.isLegal)
-            return Iterator.single(preventImmediateLooseMove)
+        if (preventImmediateLossMove.isLegal)
+            return Iterator.single(preventImmediateLossMove)
 
         otherMoves.reverseIterator
     }
@@ -237,7 +241,7 @@ class ConnectFourGame(
         })
 
     /**
-      * True if all squares of the board are occupied.
+      * True if all squares of the current board are occupied.
       */
     def allSquaresOccupied(): Boolean = occupiedInfo.areOccupied(board.topRowMask)
 
@@ -295,7 +299,7 @@ class ConnectFourGame(
       * The result is only well defined iff the game was not already finished before the last move.
       *
       * ==Note==
-      * Every call to this method (re)analyses the board given the last move
+      * Every call to this method (re)analyses the board given the last move.
       */
     protected[connect4] def determineState(
         lastMove: Mask,
@@ -315,16 +319,16 @@ class ConnectFourGame(
       *
       * Subclasses are explicitly allowed to implement ''fail-soft alpha-beta-pruning''. Hence, two moves
       * that are rated equally are not necessarily equally good when the second move was evaluated given
-      * some specific alpha-beta bounds.
+      * some specific alpha-beta bounds and some pruning was done.
       *
       * ==Precondition==
       * Before the immediate last move the game was not already finished. I.e., the return value is
       * not defined when the game was already won by a player before the last move.
       *
+      * @param cacheManager The cache that is used to store the score of specific game states.
       * @param occupiedSquares The number of occupied squares.
       * @param occupiedInfo The information which squares are currently occupied.
-      * @param playerInfo The information which player occupies a specific square if the square is occupied at
-      * 	all.
+      * @param playerInfo The information to which player an occupied square belongs.
       * @param lastMove The last move that was made and which led to the current game state.
       * @param depth The remaining number of levels of the search tree that may be explored.
       * @param alpha The best value that the current player can achieve (Initially `-Int.MaxValue`).
@@ -357,7 +361,7 @@ class ConnectFourGame(
                 return -score(board, occupiedSquares, occupiedInfo, playerInfo)
         }
 
-        // 3. perform a recursive call to this method to continue exploring the search tree
+        // 3. continue exploring the search tree
         val nextMoves =
             if (depth > 1)
                 this.nextMovesWithKillerMoveIdentification(occupiedInfo, playerInfo)
@@ -365,7 +369,7 @@ class ConnectFourGame(
                 this.nextMoves(occupiedInfo)
         var valueOfBestMove = Int.MinValue // we always maximize (negamax)!
         var newAlpha = alpha
-        do { // for each legal move...
+        do { // for each legal move perform a recursive call to continue exploring the search tree
             val nextMove: Mask = nextMoves.next
             val value = evaluateMove(
                 cacheManager,
@@ -401,7 +405,7 @@ class ConnectFourGame(
         /**
           * Returns true if caching (caching the configuration/trying to look up the score of a configuration
           * in the cache) potentially makes sense. I.e., it does not make sense to cache the node at the first
-          * level of the search tree, as there will never be a successful lookup.
+          * level of the search tree as there will never be a successful lookup of this configuration.
           */
         def doCaching: Boolean
 
@@ -448,7 +452,7 @@ class ConnectFourGame(
     }
 
     /**
-      * Cache manager that is used as long as it makes not sense to cache a specific configuration.
+      * Cache manager that is used as long as it makes no sense to cache a specific configuration.
       */
     protected[connect4] class PreCachePhaseCacheManager(
             final val rootCacheManager: RootCacheManager,
@@ -457,12 +461,15 @@ class ConnectFourGame(
             final val menPerLogicalRowWhite: IndexedSeq[Int],
             final val menPerLogicalRowBlack: IndexedSeq[Int]) extends DelegatingCacheManager {
 
-        private def this(rootCacheManager: RootCacheManager, emptySeq: IndexedSeq[Int]) {
-            this(rootCacheManager, Player.White, emptySeq, emptySeq, emptySeq)
+        private def this(
+                rootCacheManager: RootCacheManager, 
+                menPerColumn: IndexedSeq[Int],
+                menPerLogicalRow : IndexedSeq[Int]) {
+            this(rootCacheManager, Player.White, menPerColumn, menPerLogicalRow, menPerLogicalRow)
         }
 
         def this(rootCacheManager: RootCacheManager) {
-            this(rootCacheManager, IndexedSeq.fill(board.cols) { 0 })
+            this(rootCacheManager, IndexedSeq.fill(board.cols) { 0 },IndexedSeq.fill(board.rows+1) { 0 })
         }
 
         final def doCaching = { false }
@@ -530,7 +537,7 @@ class ConnectFourGame(
                 occupiedSquares + 1, updatedOccupiedInfo, updatedPlayerInfo,
                 nextMove, depth, alpha, beta)
 
-        if (updatedCacheManager.doCaching) {
+        if (updatedCacheManager.doCaching && depth <= 16) {
 
             def putIntoCache(): Int = {
                 val score = callNegamax(updatedCacheManager)
@@ -626,7 +633,7 @@ class ConnectFourGame(
     /**
       * Proposes a ''move'' given the current game state. The negamax algorithm is used to determine it.
       *
-      * @param maxDepth The number of levels of the search tree that will be explored.
+      * @param maxDepth The maximum number of levels of the search tree that will be explored.
       */
     def proposeMove(maxDepth: Int): Mask = {
 
