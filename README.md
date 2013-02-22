@@ -30,8 +30,11 @@ The following types of connect four games are decided:
 |4 | 5 | drawn
 |4 | 6 | the second player will win
 |4 | 7 | drawn
+|5 | 4 | drawn
 |5 | 5 | drawn
+|5 | 6 | drawn
 |6 | 4 | drawn 
+|6 | 5 | drawn 
 |6 | 6 | the second player will win
 
  
