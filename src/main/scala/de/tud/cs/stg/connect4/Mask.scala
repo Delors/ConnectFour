@@ -77,10 +77,10 @@ class Mask private (val value: Long) extends AnyVal {
     def isLegal = this.value != Mask.Illegal.value
 
     /**
-     * True if this mask selects no square.
-     */
+      * True if this mask selects no square.
+      */
     def isEmpty = this.value == 0l
-    
+
     /**
       * Tests is all squares identified by the other mask are set for this mask.
       */
@@ -109,7 +109,7 @@ object Mask {
       * Returns one mask that selects all the squares with the given ids.
       *
       * ==Note==
-      * This method is intended to be used by the tests as it is not optimized.
+      * This method is intended to be used by the tests only as it is not optimized.
       */
     def forSquares(squareIds: Int*): Mask = (Empty /: squareIds.map(Mask.forSquare(_)))(_ combine _)
 
@@ -117,6 +117,11 @@ object Mask {
       * Returns a mask that selects the square with the given id.
       */
     def forSquare(squareId: Int): Mask = new Mask(1l << squareId)
+
+    /**
+      * Returns a mask that selects the lowest square in the column.
+      */
+    def lowestSquareInColumn(column: Int): Mask = new Mask(1l << column)
 
     /**
       * A mask that selects no square.
