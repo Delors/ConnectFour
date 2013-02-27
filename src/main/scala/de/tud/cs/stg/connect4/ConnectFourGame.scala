@@ -33,6 +33,8 @@
 package de.tud.cs.stg.connect4
 
 import scala.language.existentials
+
+import scala.collection.Iterator
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Buffer
 
@@ -109,7 +111,8 @@ import scala.collection.mutable.Buffer
   * and these masks are just matched (by means of the standard binary-and ("&") operator) against both long
   * values to determine whether a certain player has won the game.
   *
-  * @param board The board on which the game will be played.
+  * @param board The board on which the game will be played. The board is shared across all instances
+  * 	created using this `ConnectFourGame` object
   * @param score A function that scores a specific board. The value has to be positive if the white player has an
   *     advantage and negative if the black player has an advantage. The value has to be in the range
   *     (`-Int.MaxValue`..`Int.MaxValue`) unless the white or the black player will definitively win. In that
@@ -123,41 +126,51 @@ import scala.collection.mutable.Buffer
   * @author Michael Eichberg (eichberg@informatik.tu-darmstadt.de)
   */
 class ConnectFourGame(
-        final val board: Board,
-        final val score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int,
         final val occupiedSquares: Int = 0,
         final val occupiedInfo: OccupiedInfo = OccupiedInfo.create(),
-        final val playerInfo: PlayerInfo = PlayerInfo.create()) {
+        final val playerInfo: PlayerInfo = PlayerInfo.create())(
+                implicit final val board: Board,
+                implicit final val score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int) {
+
+    private def this(
+        board: Board,
+        score: (Board, Int, OccupiedInfo, PlayerInfo) ⇒ Int,
+        occupiedSquares: Int = 0,
+        occupiedInfo: OccupiedInfo = OccupiedInfo.create(),
+        playerInfo: PlayerInfo = PlayerInfo.create()) {
+        this(occupiedSquares, occupiedInfo, playerInfo)(board, score)
+    }
 
     /**
       * Iterates over the masks that select the squares where the current player is allowed to put its
       * next man.
       */
-    def nextMoves(): scala.collection.Iterator[Mask] = nextMoves(this.occupiedInfo)
+    def nextMoves(): Iterator[Mask] = nextMoves(this.occupiedInfo)
 
     /**
-      * Iterator that returns the masks that selects the squares where the current player is allowed to put
+      * Returns the masks that selects the squares where the current player is allowed to put
       * its next man given the specific board configuration.
       *
-      * The iterator will start with the column in the middle and will then return the column to the left,
-      * the right, the left and so on. I.e., if we have seven columns, the order in which the columns are
-      * tested for free squares is: 3,2,4,1,5,0,6.
+      * The iterator will start with the column in the middle and will then return the next free column to
+      * the left, the right, the left and so on. I.e., if we have seven columns, the order in which the
+      * columns are tested for free squares is: 3,2,4,1,5,0,6.
       */
-    protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): scala.collection.Iterator[Mask] = {
+    protected[connect4] def nextMoves(occupiedInfo: OccupiedInfo): Iterator[Mask] = {
         new Iterator[Mask] {
 
-            private var col = -1
+            private var column = -1
             private var count = 0
 
             private def advance() {
                 // if we have 7 columns, the sequence: 3+0,3-1,3+1,3-2,3+2,3-3,3+3 is generated
                 val cols = board.cols
                 do {
-                    this.count += 1
-                    val count = this.count
-                    col = (cols / 2) + (if ((count % 2) == 0) -(count / 2) else count / 2)
-                } while (count <= board.cols &&
-                    occupiedInfo.areOccupied(Mask(board.upperLeftSquareMask.value << col)))
+                    val currentCount = this.count
+                    val newCount = currentCount + 1
+                    this.count = newCount
+                    column = (cols / 2) + (if ((newCount % 2) == 0) -(newCount / 2) else newCount / 2)
+                } while (count <= cols &&
+                    occupiedInfo.areOccupied(Mask(board.upperLeftSquareMask.value << column)))
             }
 
             advance()
@@ -165,11 +178,11 @@ class ConnectFourGame(
             def hasNext(): Boolean = count <= board.cols
 
             def next(): Mask = {
-                val columnMask = board.columnMasks(col)
+                val columnMask = board.columnMasks(column)
                 val filteredOccupiedInfo = occupiedInfo.filter(columnMask)
                 val mask = {
                     if (filteredOccupiedInfo.allSquaresEmpty)
-                        Mask(1l << col)
+                        Mask.lowestSquareInColumn(column)
                     else
                         Mask((filteredOccupiedInfo.board ^ columnMask.value) &
                             (filteredOccupiedInfo.board << board.cols))
@@ -188,7 +201,7 @@ class ConnectFourGame(
       *
       * ==Implementation Note==
       * The complexity of identifying a killer move is roughly comparable to the effort that is necessary
-      * when exploring and scoring the last level of the search tree. Hence, calling this function is
+      * when exploring and scoring the last level of the search tree. Hence, calling this function is not
       * meaningful when analyzing the last level.
       */
     protected[connect4] def nextMovesWithKillerMoveIdentification(
@@ -392,8 +405,18 @@ class ConnectFourGame(
 
     protected[connect4] trait CacheManager {
 
+        /**
+          * The current game configuration that is relevant w.r.t. caching consists of the information
+          * which squares are occupied by which player and whoes turn it is.
+          */
         type Configuration = (OccupiedInfo, PlayerInfo)
 
+        /**
+          * Reusing a calculated score of a specific configuration is only valid if the current alpha and
+          * beta bounds are within in the original alpha and beta bounds.
+          *
+          * The first value is the alpha bound, the second is the beta bound and third value is the score.
+          */
         type CurrentScore = (Int, Int, Int) /* alpha,beta,score*/
 
         def update(configuration: Configuration, score: CurrentScore): Unit
@@ -425,9 +448,12 @@ class ConnectFourGame(
 
         final def doCaching = false
 
+        /**
+         * 
+         */
         final val inCachePhaseCacheManager = new DelegatingCacheManager {
 
-            def rootCacheManager: RootCacheManager = RootCacheManager.this
+            final val rootCacheManager: RootCacheManager = RootCacheManager.this
 
             final def doCaching = true
 
@@ -452,7 +478,10 @@ class ConnectFourGame(
     }
 
     /**
-      * Cache manager that is used as long as it makes no sense to cache a specific configuration.
+      * Cache manager that tracks the first moves to filter out board configurations that will only be
+      * encountered once. E.g., caching the score of the first move by the current player does not make
+      * sense as this configuration will never be encountered again during the exploration of the search
+      * tree.   
       */
     protected[connect4] class PreCachePhaseCacheManager(
             final val rootCacheManager: RootCacheManager,
@@ -462,14 +491,14 @@ class ConnectFourGame(
             final val menPerLogicalRowBlack: IndexedSeq[Int]) extends DelegatingCacheManager {
 
         private def this(
-                rootCacheManager: RootCacheManager, 
-                menPerColumn: IndexedSeq[Int],
-                menPerLogicalRow : IndexedSeq[Int]) {
+            rootCacheManager: RootCacheManager,
+            menPerColumn: IndexedSeq[Int],
+            menPerLogicalRow: IndexedSeq[Int]) {
             this(rootCacheManager, Player.White, menPerColumn, menPerLogicalRow, menPerLogicalRow)
         }
 
         def this(rootCacheManager: RootCacheManager) {
-            this(rootCacheManager, IndexedSeq.fill(board.cols) { 0 },IndexedSeq.fill(board.rows+1) { 0 })
+            this(rootCacheManager, IndexedSeq.fill(board.cols) { 0 }, IndexedSeq.fill(board.rows + 1) { 0 })
         }
 
         final def doCaching = { false }
