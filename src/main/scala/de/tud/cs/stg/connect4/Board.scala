@@ -388,7 +388,7 @@ class Board( final val rows: Int, final val cols: Int) {
     }
 
     /**
-      * True if the test mask selects squares that are n row above the base mask.
+      * True if the `test` mask selects squares that are `n` rows above the `base` mask.
       */
     final def isRowsAbove(base: Mask, test: Mask, n: Int): Boolean = {
         (base.value << (n * cols)) == test.value
