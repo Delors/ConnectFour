@@ -98,6 +98,39 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
         makeMove(Mask.forSquare(4)).makeMove(Mask.forSquare(2)).
         makeMove(Mask.forSquare(5))
 
+    //Next Player: WHITE
+    //Board:
+    //5                
+    //4                
+    //3        ○        
+    //2        ◼        
+    //1      ○ ○        
+    //0    ◼ ○ ◼   ◼   
+    //
+    //   0 1 2 3 4 5 6     
+    val bWhiteWillWinInFiveMoves = b0.
+        makeMove(Mask.forSquare(2)).makeMove(Mask.forSquare(1)).
+        makeMove(Mask.forSquare(9)).makeMove(Mask.forSquare(3)).
+        makeMove(Mask.forSquare(10)).makeMove(Mask.forSquare(17)).
+        makeMove(Mask.forSquare(24)).makeMove(Mask.forSquare(5))
+
+    //Next Player: WHITE
+    //Board:
+    //5                
+    //4                
+    //3        ○        
+    //2        ◼        
+    //1      ○ ○        
+    //0    ◼ ○ ◼   ◼   
+    //
+    //   0 1 2 3 4 5 6     
+    val bWhiteWillWinInSevenMoves = b0.
+        makeMove(Mask.forSquare(3)).makeMove(Mask.forSquare(4)).
+        makeMove(Mask.forSquare(0)).makeMove(Mask.forSquare(2)).
+        makeMove(Mask.forSquare(11)).makeMove(Mask.forSquare(18)).
+        makeMove(Mask.forSquare(9)).makeMove(Mask.forSquare(16)).
+        makeMove(Mask.forSquare(23)).makeMove(Mask.forSquare(5))
+
     //
     // TESTS
     //
@@ -192,6 +225,29 @@ class TestGame extends FunSpec with ShouldMatchers /*with BeforeAndAfterAll */ {
             bWhiteCanWin.proposeMove(2) should be(Mask.forSquare(6))
             bWhiteCanWin.proposeMove(1) should be(Mask.forSquare(6))
         }
+
+        it("an ai that looks ahead at least 5 moves should be able to detect how to force a win "+
+            "for the following board:\n"+bWhiteWillWinInFiveMoves.toString) {
+            bWhiteWillWinInFiveMoves.proposeMove(5) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(6) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(7) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(8) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(9) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(10) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(11) should be(Mask.forSquare(16))
+            bWhiteWillWinInFiveMoves.proposeMove(12) should be(Mask.forSquare(16))
+        }
+
+        it("an ai that looks ahead at least 7 moves should be able to detect how to force a win "+
+            "for the following board:\n"+bWhiteWillWinInSevenMoves.toString) {
+            bWhiteWillWinInSevenMoves.proposeMove(7) should be(Mask.forSquare(10))
+            bWhiteWillWinInSevenMoves.proposeMove(8) should be(Mask.forSquare(10))
+            bWhiteWillWinInSevenMoves.proposeMove(9) should be(Mask.forSquare(10))
+            bWhiteWillWinInSevenMoves.proposeMove(10) should be(Mask.forSquare(10))
+            bWhiteWillWinInSevenMoves.proposeMove(11) should be(Mask.forSquare(10))
+            bWhiteWillWinInSevenMoves.proposeMove(12) should be(Mask.forSquare(10))
+        }
+
     }
 
     ignore("the better ai should win the game") {
