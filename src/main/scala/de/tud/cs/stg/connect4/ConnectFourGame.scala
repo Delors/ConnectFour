@@ -44,6 +44,9 @@ import scala.collection.mutable.Buffer
   *
   * For a detailed discussion of "Connect Four" go to:
   * [[http://www.connectfour.net/Files/connect4.pdf Connect Four - Master Thesis]]
+  * 
+  * For some hints how to play "Connect Four" go to:
+  * [[http://homepages.cwi.nl/~tromp/c4.html Expert Play in Connect Four]]
   *
   * ==Overview==
   * This is an implementation of the game "Connect Four" that uses the minimax algorithm to implement the
@@ -268,7 +271,7 @@ class ConnectFourGame(
         occupiedInfo: OccupiedInfo,
         playerInfo: PlayerInfo): ConnectFourGame = {
 
-        new ConnectFourGame(board, score, occupiedSquares, occupiedInfo, playerInfo)
+        new ConnectFourGame(occupiedSquares, occupiedInfo, playerInfo)
     }
 
     /**
