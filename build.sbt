@@ -2,7 +2,7 @@ name := "Connect4"
 
 version := "0.9.9"
 
-scalaVersion := "2.10.1"
+scalaVersion := "2.10.2"
 
 scalacOptions in (Compile,compile) += "–deprecation" 
 
